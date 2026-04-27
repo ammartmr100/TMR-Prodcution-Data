@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #cbd5e1;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Reset margins and paddings for the main container when printing */
+  #root {
+    display: block !important;
+  }
+
+  main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* If a modal is open, we only want to print the modal */
+  body:has(.fixed.inset-0.z-\[100\]) main,
+  body:has(.fixed.inset-0.z-\[100\]) aside,
+  body:has(.fixed.inset-0.z-\[100\]) nav {
+    display: none !important;
+  }
+
+  .fixed.inset-0.z-\[100\] {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    display: block !important;
+    background: white !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    z-index: 9999 !important;
+  }
+
+  .fixed.inset-0.z-\[100\] > div {
+    position: relative !important;
+    display: block !important;
+    box-shadow: none !important;
+    max-width: none !important;
+    max-height: none !important;
+    border: none !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide modal header and operator list in double machine report during print */
+  .fixed.inset-0.z-\[100\] .no-print,
+  .fixed.inset-0.z-\[100\] .lg\:w-60,
+  .fixed.inset-0.z-\[100\] .border-b {
+    display: none !important;
+  }
+
+  /* Show only the report content area */
+  .fixed.inset-0.z-\[100\] .flex-1.overflow-y-auto {
+    display: block !important;
+    padding: 0 !important;
+    background: white !important;
+    overflow: visible !important;
+  }
+
+  .fixed.inset-0.z-\[100\] .bg-white.shadow-xl {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .page-break {
+    page-break-after: always;
+    break-after: page;
+  }
+}

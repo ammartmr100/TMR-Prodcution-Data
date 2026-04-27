@@ -1,0 +1,5 @@
+{
+  "name": "Production Analysis Dashboard",
+  "description": "Interactive dashboard for visualizing factory production data, including OK/NG parts, rubber usage, and machine efficiency.",
+  "requestFramePermissions": []
+}
