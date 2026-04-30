@@ -1528,12 +1528,14 @@ export default function App() {
         </nav>
 
         {!isSidebarCollapsed && (
-          <div className="p-4 mt-auto space-y-4">
-            <div className="bg-slate-900 rounded-2xl p-4 text-white">
-              <p className="text-xs font-medium text-slate-400 mb-1">Current Status</p>
-              <p className="text-sm font-bold mb-3">System Online</p>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-emerald-500 h-full w-[95%]" />
+          <div className="p-4 mt-auto">
+            <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm flex items-center gap-3 transition-all hover:shadow-md">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-sm shrink-0 shadow-lg shadow-indigo-100">
+                AM
+              </div>
+              <div className="flex flex-col min-w-0 leading-tight">
+                <span className="text-xs font-bold text-slate-900 truncate">Ammar Mehmood</span>
+                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wide truncate">AM AUDITOR & ERP</span>
               </div>
             </div>
           </div>
