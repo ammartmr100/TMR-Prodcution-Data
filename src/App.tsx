@@ -185,15 +185,15 @@ const StatCard = ({ title, value, icon: Icon, color, trend, onClick }: { title: 
 );
 
 const ChartCard = ({ title, children, className = "", action, heightClass = "h-[300px]" }: { title: string, children: React.ReactNode, className?: string, action?: React.ReactNode, heightClass?: string }) => (
-  <div className={`bg-white p-6 rounded-2xl shadow-sm border border-black/5 ${className}`}>
-    <div className="flex items-center justify-between mb-6">
+  <div className={`bg-white p-6 rounded-2xl shadow-sm border border-black/5 flex flex-col ${className}`}>
+    <div className="flex items-center justify-between mb-6 shrink-0">
       <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
         <div className="w-1 h-4 bg-indigo-500 rounded-full" />
         {title}
       </h3>
       {action}
     </div>
-    <div className={`${heightClass} w-full`}>
+    <div className={`${heightClass} w-full min-h-0 relative`}>
       {children}
     </div>
   </div>
@@ -2467,7 +2467,7 @@ export default function App() {
                     }
                   >
                     <div className="h-full w-full mt-4">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                         <BarChart 
                           data={remarksAnalysis} 
                           layout="vertical"
@@ -2565,7 +2565,7 @@ export default function App() {
             {/* Plan Progress Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <ChartCard title="Plan Progress Distribution">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={[
@@ -2910,7 +2910,7 @@ export default function App() {
                 </button>
               }
             >
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={showAllEfficiency ? efficiencyData : efficiencyData.slice(0, 10)}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
@@ -2936,7 +2936,7 @@ export default function App() {
                 </button>
               }
             >
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={showAllNotAchieved ? notAchievedData : notAchievedData.slice(0, 10)}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
@@ -3014,7 +3014,7 @@ export default function App() {
 
             <div className="grid grid-cols-1 gap-8 mb-10">
               <ChartCard title="Top Operators by OK Production">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <BarChart data={Object.values(filteredData.reduce((acc: any, curr) => {
                     if (!acc[curr.operator]) acc[curr.operator] = { name: curr.operator, ok: 0, ng: 0 };
                     acc[curr.operator].ok += curr.okProduction;
