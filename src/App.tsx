@@ -261,6 +261,7 @@ export default function App() {
   const planVsActualRef = useRef<HTMLDivElement>(null);
 
   const [showDoubleMachineReport, setShowDoubleMachineReport] = useState(false);
+  const [showWorkerRecordReport, setShowWorkerRecordReport] = useState(false);
   const [includeRemarksInReport, setIncludeRemarksInReport] = useState(false);
   const [reportMonthFilter, setReportMonthFilter] = useState<string>('');
   const [productionOrderMonth, setProductionOrderMonth] = useState<string>('');
@@ -1000,6 +1001,51 @@ export default function App() {
     return result;
   }, [data, reportMonthFilter]);
 
+  const workerRecordData = useMemo(() => {
+    const operatorDays: { [key: string]: { [date: string]: CleanRecord[] } } = {};
+    
+    // Filter data by selected month
+    const monthFilteredData = data.filter(record => {
+      return record.monthYear === reportMonthFilter;
+    });
+
+    monthFilteredData.forEach(record => {
+      const op = record.operator;
+      if (!op) return;
+      const date = record.productionDate;
+      if (!operatorDays[op]) operatorDays[op] = {};
+      if (!operatorDays[op][date]) operatorDays[op][date] = [];
+      operatorDays[op][date].push(record);
+    });
+
+    const result: { [operator: string]: { date: string, shift: string, records: CleanRecord[] }[] } = {};
+
+    Object.entries(operatorDays).forEach(([operator, dates]) => {
+      const allDays = Object.entries(dates).flatMap(([date, records]) => {
+        // Group by shift
+        const shifts: { [shift: string]: CleanRecord[] } = {};
+        records.forEach(r => {
+          if (!shifts[r.shift]) shifts[r.shift] = [];
+          shifts[r.shift].push(r);
+        });
+
+        return Object.entries(shifts).map(([shift, shiftRecords]) => {
+          return { date, shift, records: shiftRecords };
+        });
+      });
+
+      if (allDays.length > 0) {
+        result[operator] = allDays.sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          return dateA - dateB;
+        });
+      }
+    });
+
+    return result;
+  }, [data, reportMonthFilter]);
+
   const filteredDatesList = useMemo(() => {
     return uniqueDates.filter(date => {
       const formatted = parseDate(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -1516,6 +1562,42 @@ export default function App() {
           >
             <Package className="w-5 h-5 shrink-0" />
             {!isSidebarCollapsed && <span className="truncate">Production Order</span>}
+          </button>
+
+          <button 
+            onClick={() => {
+              setShowDoubleMachineReport(true);
+              setIncludeRemarksInReport(false);
+            }}
+            title="Double Efficiency"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-all ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
+          >
+            <Activity className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="truncate">Double Efficiency</span>}
+          </button>
+
+          <button 
+            onClick={() => {
+              setShowDoubleMachineReport(true);
+              setIncludeRemarksInReport(true);
+            }}
+            title="Double Eff. (Remarks)"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-all ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
+          >
+            <Activity className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="truncate">Double Eff. (Remarks)</span>}
+          </button>
+
+          <button 
+            onClick={() => {
+              setShowWorkerRecordReport(true);
+              setIncludeRemarksInReport(true);
+            }}
+            title="Worker Record"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-all ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
+          >
+            <Users className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="truncate">Worker Record</span>}
           </button>
 
           <button 
@@ -2994,40 +3076,6 @@ export default function App() {
 
         {activeTab === 'Operators' && (
           <div className="space-y-8">
-            <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-black/5 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-                  <Users className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Operator Reports</h3>
-                  <p className="text-xs text-slate-500 font-medium">Manage and view operator performance reports</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => {
-                    setShowDoubleMachineReport(true);
-                    setIncludeRemarksInReport(false);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 cursor-pointer"
-                >
-                  <Activity className="w-4 h-4" />
-                  Double Efficiency Report
-                </button>
-                <button 
-                  onClick={() => {
-                    setShowDoubleMachineReport(true);
-                    setIncludeRemarksInReport(true);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-xl text-sm font-bold hover:bg-indigo-600 transition-all shadow-md shadow-indigo-100 cursor-pointer"
-                >
-                  <Activity className="w-4 h-4" />
-                  Double Efficiency Report with remarks
-                </button>
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 gap-8 mb-10">
               <ChartCard title="Top Operators by OK Production">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
@@ -3046,6 +3094,8 @@ export default function App() {
                 </ResponsiveContainer>
               </ChartCard>
             </div>
+          </div>
+        )}
 
             <AnimatePresence>
               {showDoubleMachineReport && (
@@ -3516,21 +3566,13 @@ export default function App() {
                             {(viewedOperatorForReport ? [viewedOperatorForReport] : selectedOperatorsForReport).map((operator, opIdx, arr) => (
                               <div 
                                 key={operator} 
-                                className={`bg-white shadow-xl border border-slate-200 rounded-sm p-8 mx-auto max-w-[900px] font-serif text-black min-h-[1000px] print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-none print:min-h-0 ${opIdx < arr.length - 1 ? 'page-break' : ''}`}
+                                className={`bg-white shadow-xl border border-slate-200 rounded-sm p-8 mx-auto max-w-[95%] font-calibri text-black min-h-[1000px] print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-none print:min-h-0 ${opIdx < arr.length - 1 ? 'page-break' : ''}`}
                               >
                                 {/* Excel Style Header */}
                                 <div className="text-center mb-6">
-                                  <h1 className="text-xl font-bold border-b-2 border-black inline-block px-6 pb-1 mb-2">TM Rubber Pvt. Ltd</h1>
-                                  <p className="text-xs italic font-bold mb-1">Efficiency Allowance For the Month of {reportMonthFilter}</p>
-                                  <p className="text-base font-bold underline decoration-2 underline-offset-4">{operator}</p>
-                                </div>
-
-                                {/* Approval Section */}
-                                <div className="grid grid-cols-4 border-2 border-black mb-6 text-[10px]">
-                                  <div className="p-2 border-r-2 border-black flex items-center justify-center font-bold bg-slate-50/50">Confirm By</div>
-                                  <div className="p-2 border-r-2 border-black h-24"></div>
-                                  <div className="p-2 border-r-2 border-black flex items-center justify-center font-bold bg-slate-50/50">Approved By</div>
-                                  <div className="p-2 h-24"></div>
+                                  <h1 className="text-2xl font-bold border-b-2 border-black inline-block px-8 pb-2 mb-3">TM Rubber Pvt. Ltd</h1>
+                                  <p className="text-sm italic font-bold mb-1">Efficiency Allowance For the Month of {reportMonthFilter}</p>
+                                  <p className="text-xl font-bold underline underline-offset-4">{operator}</p>
                                 </div>
 
                                 {/* Summary Totals */}
@@ -3548,27 +3590,29 @@ export default function App() {
                                   const overallPercent = (totalActual / (totalTarget || 1)) * 100;
 
                                   return (
-                                    <div className="grid grid-cols-10 border-2 border-black mb-4 text-center font-bold text-[9px]">
-                                      <div className="col-span-3 p-1 border-r-2 border-black bg-slate-50">Total Double Machine Days</div>
-                                      <div className="col-span-4 p-1 border-r-2 border-black text-base">{totalDays}</div>
-                                      <div className="col-span-1 p-1 border-r-2 border-black flex items-center justify-center">{totalTarget.toLocaleString()}</div>
-                                      <div className="col-span-1 p-1 border-r-2 border-black flex items-center justify-center">{totalActual.toLocaleString()}</div>
-                                      <div className="col-span-1 p-1 flex items-center justify-center bg-slate-50">{overallPercent.toFixed(2)}%</div>
+                                    <div className="grid grid-cols-10 border-2 border-black mb-4 text-center font-bold text-xs">
+                                      <div className="col-span-3 p-2 border-r-2 border-black bg-slate-50 uppercase tracking-wider">Total Double Machine Days</div>
+                                      <div className="col-span-4 p-2 border-r-2 border-black text-xl">{totalDays}</div>
+                                      <div className="col-span-3 p-2 bg-slate-50 uppercase tracking-wider flex items-center justify-center gap-4">
+                                        <div className="text-[10px] text-slate-500">Target: {totalTarget.toLocaleString()}</div>
+                                        <div className="text-[10px] text-slate-500">Actual: {totalActual.toLocaleString()}</div>
+                                        <div className="text-indigo-600 font-black">{overallPercent.toFixed(2)}%</div>
+                                      </div>
                                     </div>
                                   );
                                 })()}
 
                                 {/* Main Table */}
-                                <table className="w-full border-collapse border-2 border-black text-[8px]">
+                                <table className="w-full border-collapse border-2 border-black text-[11px] font-bold">
                                   <thead>
-                                    <tr className="bg-slate-50 font-bold">
-                                      <th className="border-2 border-black p-1 w-8 text-center">NO</th>
-                                      <th className="border-2 border-black p-1 w-20 text-center">Date</th>
-                                      <th className="border-2 border-black p-1 text-left">Part</th>
-                                      <th className="border-2 border-black p-1 w-16 text-center">Target</th>
-                                      <th className="border-2 border-black p-1 w-16 text-center">Actual</th>
-                                      <th className="border-2 border-black p-1 w-12 text-center">%</th>
-                                      {includeRemarksInReport && <th className="border-2 border-black p-1 text-left">Remarks</th>}
+                                    <tr className="bg-slate-50 font-black">
+                                      <th className="border-2 border-black p-2 w-10 text-center">NO</th>
+                                      <th className="border-2 border-black p-2 w-24 text-center">Date</th>
+                                      <th className="border-2 border-black p-2 text-left">Part Name</th>
+                                      <th className="border-2 border-black p-2 w-20 text-center">Target</th>
+                                      <th className="border-2 border-black p-2 w-20 text-center">Actual</th>
+                                      <th className="border-2 border-black p-2 w-16 text-center">%</th>
+                                      {includeRemarksInReport && <th className="border-2 border-black p-2 text-left">Remarks</th>}
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -3579,14 +3623,14 @@ export default function App() {
                                           {day.records.map((record, rIdx) => {
                                             const percent = (record.actualShots / (record.targetShots || 1)) * 100;
                                             return (
-                                              <tr key={`${day.date}-${day.shift}-${rIdx}`} className="hover:bg-slate-50">
-                                                <td className="border-2 border-black p-1 text-center">{counter++}</td>
-                                                <td className="border-2 border-black p-1 text-center">{record.productionDate}</td>
-                                                <td className="border-2 border-black p-1">{record.partName}</td>
-                                                <td className="border-2 border-black p-1 text-center font-mono">{record.targetShots.toLocaleString()}</td>
-                                                <td className="border-2 border-black p-1 text-center font-mono">{record.actualShots.toLocaleString()}</td>
-                                                <td className="border-2 border-black p-1 text-center font-bold">{percent.toFixed(1)}</td>
-                                                {includeRemarksInReport && <td className="border-2 border-black p-1">{record.remarks || '-'}</td>}
+                                              <tr key={`${day.date}-${day.shift}-${rIdx}`} className="hover:bg-slate-50 border-b-2 border-black">
+                                                <td className="border-2 border-black p-2 text-center">{counter++}</td>
+                                                <td className="border-2 border-black p-2 text-center">{record.productionDate}</td>
+                                                <td className="border-2 border-black p-2 uppercase">{record.partName}</td>
+                                                <td className="border-2 border-black p-2 text-center font-mono">{record.targetShots.toLocaleString()}</td>
+                                                <td className="border-2 border-black p-2 text-center font-mono">{record.actualShots.toLocaleString()}</td>
+                                                <td className="border-2 border-black p-2 text-center font-black">{percent.toFixed(1)}%</td>
+                                                {includeRemarksInReport && <td className="border-2 border-black p-2">{record.remarks || '-'}</td>}
                                               </tr>
                                             );
                                           })}
@@ -3610,8 +3654,242 @@ export default function App() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-        )}
+            <AnimatePresence>
+              {showWorkerRecordReport && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center"
+                >
+                  <motion.div 
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    className="bg-white w-full h-full overflow-hidden flex flex-col"
+                  >
+                    <div className="p-3 lg:p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 no-print">
+                      <div className="flex items-center gap-2 lg:gap-3">
+                        <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white shrink-0">
+                          <Users className="w-4 h-4 lg:w-5 lg:h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm lg:text-lg font-bold text-slate-900 leading-tight truncate">
+                            Worker Record {includeRemarksInReport && <span className="text-indigo-600">(with remarks)</span>}
+                          </h3>
+                          <p className="text-[9px] lg:text-[10px] text-slate-500 font-medium hidden sm:block">Comprehensive record of production for all workers</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 lg:gap-3 no-print">
+                        {selectedOperatorsForReport.length > 0 && (
+                          <div className={`${showMobileReport ? 'flex' : 'hidden lg:flex'} items-center gap-2`}>
+                            <button 
+                              onClick={async () => {
+                                const workbook = new ExcelJS.Workbook();
+                                for (const operator of selectedOperatorsForReport) {
+                                  const worksheet = workbook.addWorksheet(operator.substring(0, 31));
+                                  const opData = workerRecordData[operator];
+                                  if (!opData) continue;
+                                  worksheet.columns = [{ width: 8 }, { width: 20 }, { width: 35 }, { width: 12 }, { width: 12 }, { width: 10 }, { width: 12 }, ...(includeRemarksInReport ? [{ width: 25 }] : [])];
+                                  const lastColLetter = includeRemarksInReport ? 'H' : 'G';
+                                  const headerRow = worksheet.addRow(['TM Rubber Pvt. Ltd']);
+                                  worksheet.mergeCells(`A${headerRow.number}:${lastColLetter}${headerRow.number}`);
+                                  headerRow.getCell(1).font = { bold: true, size: 16 };
+                                  headerRow.getCell(1).alignment = { horizontal: 'center' };
+                                  headerRow.getCell(1).border = { bottom: { style: 'medium' } };
+                                  const subHeaderRow = worksheet.addRow([`Worker Production Record For the Month of ${reportMonthFilter}`]);
+                                  worksheet.mergeCells(`A${subHeaderRow.number}:${lastColLetter}${subHeaderRow.number}`);
+                                  subHeaderRow.getCell(1).font = { bold: true, italic: true, size: 11 };
+                                  subHeaderRow.getCell(1).alignment = { horizontal: 'center' };
+                                  const opNameRow = worksheet.addRow([operator]);
+                                  worksheet.mergeCells(`A${opNameRow.number}:${lastColLetter}${opNameRow.number}`);
+                                  opNameRow.getCell(1).font = { bold: true, size: 14, underline: true };
+                                  opNameRow.getCell(1).alignment = { horizontal: 'center' };
+                                  worksheet.addRow([]);
+                                  const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '', '', '']);
+                                  worksheet.mergeCells(`A${approvalRow.number}:B${approvalRow.number}`);
+                                  worksheet.mergeCells(`D${approvalRow.number}:E${approvalRow.number}`);
+                                  if (includeRemarksInReport) worksheet.mergeCells(`G${approvalRow.number}:H${approvalRow.number}`);
+                                  approvalRow.height = 60;
+                                  approvalRow.getCell(1).font = { bold: true, size: 10 };
+                                  approvalRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                                  approvalRow.getCell(4).font = { bold: true, size: 10 };
+                                  approvalRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+                                  for (let i = 1; i <= (includeRemarksInReport ? 8 : 7); i++) approvalRow.getCell(i).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                                  worksheet.addRow([]);
+                                  let totalTarget = 0, totalActual = 0;
+                                  opData.forEach(day => day.records.forEach(r => { totalTarget += r.targetShots; totalActual += r.actualShots; }));
+                                  const overallPercent = (totalActual / (totalTarget || 1)) * 100;
+                                  const summaryRow = worksheet.addRow(['Total Records', '', opData.length, totalTarget, totalActual, `${overallPercent.toFixed(2)}%`, '', ...(includeRemarksInReport ? [''] : [])]);
+                                  worksheet.mergeCells(`A${summaryRow.number}:B${summaryRow.number}`);
+                                  summaryRow.font = { bold: true, size: 10 };
+                                  summaryRow.alignment = { horizontal: 'center', vertical: 'middle' };
+                                  for (let i = 1; i <= 7; i++) { const cell = summaryRow.getCell(i); cell.border = { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } }; }
+                                  worksheet.addRow([]);
+                                  const tableHeader = worksheet.addRow(['NO', 'Date', 'Part', 'Target', 'Actual', '%', 'Time', ...(includeRemarksInReport ? ['Remarks'] : [])]);
+                                  tableHeader.font = { bold: true };
+                                  tableHeader.alignment = { horizontal: 'center' };
+                                  tableHeader.eachCell((cell) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } }; cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
+                                  let counter = 1;
+                                  opData.forEach(day => day.records.forEach(record => {
+                                    const percent = (record.actualShots / (record.targetShots || 1)) * 100;
+                                    const row = worksheet.addRow([counter++, record.productionDate, record.partName, record.targetShots, record.actualShots, `${percent.toFixed(1)}%`, record.time || '-', ...(includeRemarksInReport ? [record.remarks || ''] : [])]);
+                                    row.alignment = { horizontal: 'center' };
+                                    row.getCell(3).alignment = { horizontal: 'left' };
+                                    row.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
+                                  }));
+                                }
+                                const buffer = await workbook.xlsx.writeBuffer();
+                                saveAs(new Blob([buffer]), `worker_records_${includeRemarksInReport ? 'with_remarks_' : ''}${reportMonthFilter.replace(' ', '_')}.xlsx`);
+                              }}
+                              className="flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 bg-emerald-600 text-white rounded-xl text-[10px] lg:text-sm font-bold hover:bg-emerald-700 transition-all shadow-md shadow-emerald-200 cursor-pointer"
+                            >
+                              <Download className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                              <span className="hidden sm:inline">Export Selected XLSX</span>
+                              <span className="sm:hidden">Export</span>
+                            </button>
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => {
+                            setShowWorkerRecordReport(false);
+                            setSelectedOperatorsForReport([]);
+                            setViewedOperatorForReport(null);
+                            setShowMobileReport(false);
+                          }}
+                          className="p-2 hover:bg-slate-200 rounded-full transition-colors cursor-pointer"
+                        >
+                          <X className="w-6 h-6 text-slate-400" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-hidden flex flex-col lg:flex-row relative">
+                      <div className={`w-full lg:w-60 border-r border-slate-100 overflow-y-auto bg-slate-50/30 p-3 pt-2 flex flex-col gap-3 ${showMobileReport ? 'hidden lg:flex' : 'flex'}`}>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1 mb-1 block">Select Month</label>
+                          <select 
+                            value={reportMonthFilter}
+                            onChange={(e) => {
+                              setReportMonthFilter(e.target.value);
+                              setSelectedOperatorsForReport([]);
+                              setViewedOperatorForReport(null);
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                          >
+                            {availableReportMonths.map(month => (
+                              <option key={month} value={month}>{month}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1 mb-1 block">Search Operator</label>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                            <input 
+                              type="text"
+                              placeholder="Type name..."
+                              value={reportOperatorSearch}
+                              onChange={(e) => setReportOperatorSearch(e.target.value)}
+                              className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-2 mt-2 pr-1 custom-scrollbar">
+                          {Object.keys(workerRecordData).filter(op => op.toLowerCase().includes(reportOperatorSearch.toLowerCase())).sort().map(operator => (
+                            <div
+                              key={operator}
+                              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer flex items-center gap-3 ${viewedOperatorForReport === operator ? 'bg-indigo-50 border-indigo-200' : 'text-slate-600 hover:bg-white hover:shadow-sm'}`}
+                              onClick={() => { setViewedOperatorForReport(operator); setShowMobileReport(true); }}
+                            >
+                              <div 
+                                className={`w-5 h-5 rounded border flex items-center justify-center transition-colors shrink-0 ${selectedOperatorsForReport.includes(operator) ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300 hover:border-indigo-400'}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (selectedOperatorsForReport.includes(operator)) setSelectedOperatorsForReport(selectedOperatorsForReport.filter(op => op !== operator));
+                                  else setSelectedOperatorsForReport([...selectedOperatorsForReport, operator]);
+                                }}
+                              >
+                                {selectedOperatorsForReport.includes(operator) && <div className="w-2 h-2 bg-white rounded-sm" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="truncate">{operator}</div>
+                                <div className={`text-[10px] mt-0.5 ${viewedOperatorForReport === operator ? 'text-indigo-600' : 'text-slate-400'}`}>{workerRecordData[operator].length} Records</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div ref={reportRef} className={`flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-100/50 print:bg-white print:p-0 ${showMobileReport ? 'block' : 'hidden lg:block'}`}>
+                        {viewedOperatorForReport || selectedOperatorsForReport.length > 0 ? (
+                          <div className="space-y-8 print:space-y-0">
+                            {(viewedOperatorForReport ? [viewedOperatorForReport] : selectedOperatorsForReport).map((operator, opIdx, arr) => (
+                              <div key={operator} className={`bg-white shadow-xl border border-slate-200 rounded-sm p-8 mx-auto max-w-[95%] font-calibri text-black min-h-[1000px] print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-none print:min-h-0 ${opIdx < arr.length - 1 ? 'page-break' : ''}`}>
+                                <div className="text-center mb-6">
+                                  <h1 className="text-2xl font-bold border-b-2 border-black inline-block px-8 pb-2 mb-3">TM Rubber Pvt. Ltd</h1>
+                                  <p className="text-sm italic font-bold mb-1">Worker Production Record For the Month of {reportMonthFilter}</p>
+                                  <p className="text-xl font-bold underline underline-offset-4">{operator}</p>
+                                </div>
+                                <div className="grid grid-cols-10 border-2 border-black mb-4 text-center font-bold text-xs">
+                                  <div className="col-span-3 p-2 border-r-2 border-black bg-slate-50 uppercase tracking-wider">Total Records</div>
+                                  <div className="col-span-4 p-2 border-r-2 border-black text-xl">{workerRecordData[operator]?.length || 0}</div>
+                                  <div className="col-span-3 p-2 bg-slate-50 uppercase tracking-wider">Monthly Summary</div>
+                                </div>
+                                <table className="w-full border-collapse border-2 border-black text-[11px] font-bold">
+                                  <thead>
+                                    <tr className="bg-slate-50 font-black">
+                                      <th className="border-2 border-black p-2 w-10 text-center">NO</th>
+                                      <th className="border-2 border-black p-2 w-24 text-center">Date</th>
+                                      <th className="border-2 border-black p-2 text-left">Part</th>
+                                      <th className="border-2 border-black p-2 w-20 text-center">Target</th>
+                                      <th className="border-2 border-black p-2 w-20 text-center">Actual</th>
+                                      <th className="border-2 border-black p-2 w-16 text-center">%</th>
+                                      <th className="border-2 border-black p-2 w-20 text-center">Time</th>
+                                      {includeRemarksInReport && <th className="border-2 border-black p-2 text-left">Remarks</th>}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(() => {
+                                      let counter = 1;
+                                      return workerRecordData[operator]?.map((day) => (
+                                        <React.Fragment key={`${day.date}-${day.shift}`}>
+                                          {day.records.map((record, rIdx) => {
+                                            const percent = (record.actualShots / (record.targetShots || 1)) * 100;
+                                            return (
+                                              <tr key={`${day.date}-${day.shift}-${rIdx}`} className="hover:bg-slate-50 border-b-2 border-black">
+                                                <td className="border-2 border-black p-2 text-center">{counter++}</td>
+                                                <td className="border-2 border-black p-2 text-center">{record.productionDate}</td>
+                                                <td className="border-2 border-black p-2 uppercase">{record.partName}</td>
+                                                <td className="border-2 border-black p-2 text-center font-mono">{record.targetShots.toLocaleString()}</td>
+                                                <td className="border-2 border-black p-2 text-center font-mono">{record.actualShots.toLocaleString()}</td>
+                                                <td className="border-2 border-black p-2 text-center font-black">{percent.toFixed(1)}%</td>
+                                                <td className="border-2 border-black p-2 text-center font-mono">{record.time || '-'}</td>
+                                                {includeRemarksInReport && <td className="border-2 border-black p-2">{record.remarks || '-'}</td>}
+                                              </tr>
+                                            );
+                                          })}
+                                        </React.Fragment>
+                                      ));
+                                    })()}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4">
+                            <Users className="w-16 h-16 opacity-20" />
+                            <p className="text-lg font-medium">Select a worker from the left to view their detailed record</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
         {activeTab === 'Settings' && (
           <div className="max-w-2xl bg-white p-8 rounded-2xl border border-black/5">

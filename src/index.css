@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --font-calibri: "Calibri", "Candara", "Segoe UI", "Optima", "Arial", sans-serif;
+}
+
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
     width: 4px;
