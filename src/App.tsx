@@ -261,6 +261,7 @@ export default function App() {
   const planVsActualRef = useRef<HTMLDivElement>(null);
 
   const [showDoubleMachineReport, setShowDoubleMachineReport] = useState(false);
+  const [includeRemarksInReport, setIncludeRemarksInReport] = useState(false);
   const [reportMonthFilter, setReportMonthFilter] = useState<string>('');
   const [productionOrderMonth, setProductionOrderMonth] = useState<string>('');
   const [reportOperatorSearch, setReportOperatorSearch] = useState<string>('');
@@ -3003,13 +3004,28 @@ export default function App() {
                   <p className="text-xs text-slate-500 font-medium">Manage and view operator performance reports</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setShowDoubleMachineReport(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 cursor-pointer"
-              >
-                <Activity className="w-4 h-4" />
-                Double Machine Report
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    setShowDoubleMachineReport(true);
+                    setIncludeRemarksInReport(false);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-200 cursor-pointer"
+                >
+                  <Activity className="w-4 h-4" />
+                  Double Efficiency Report
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowDoubleMachineReport(true);
+                    setIncludeRemarksInReport(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-xl text-sm font-bold hover:bg-indigo-600 transition-all shadow-md shadow-indigo-100 cursor-pointer"
+                >
+                  <Activity className="w-4 h-4" />
+                  Double Efficiency Report with remarks
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-8 mb-10">
@@ -3051,7 +3067,9 @@ export default function App() {
                           <Activity className="w-4 h-4 lg:w-5 lg:h-5" />
                         </div>
                         <div className="min-w-0">
-                          <h3 className="text-sm lg:text-lg font-bold text-slate-900 leading-tight truncate">Double Machine Report</h3>
+                          <h3 className="text-sm lg:text-lg font-bold text-slate-900 leading-tight truncate">
+                            Double Efficiency Report {includeRemarksInReport && <span className="text-indigo-600">(with remarks)</span>}
+                          </h3>
                           <p className="text-[9px] lg:text-[10px] text-slate-500 font-medium hidden sm:block">Operators operating multiple machines in a single day</p>
                         </div>
                       </div>
@@ -3074,7 +3092,8 @@ export default function App() {
                                     { width: 35 }, // Part
                                     { width: 12 }, // Target
                                     { width: 12 }, // Actual
-                                    { width: 10 }  // %
+                                    { width: 10 }, // %
+                                    ...(includeRemarksInReport ? [{ width: 25 }] : []) // Remarks
                                   ];
 
                                   // Header: TM Rubber Pvt. Ltd
@@ -3098,21 +3117,23 @@ export default function App() {
                                   worksheet.addRow([]); // Spacer
 
                                   // Approval Section (Side-by-side like App UI)
-                                  const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '']);
+                                  const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '', '']);
                                   worksheet.mergeCells(`A${approvalRow.number}:B${approvalRow.number}`);
                                   worksheet.mergeCells(`D${approvalRow.number}:E${approvalRow.number}`);
+                                  if (includeRemarksInReport) {
+                                    worksheet.mergeCells(`F${approvalRow.number}:G${approvalRow.number}`);
+                                  }
                                   approvalRow.height = 60;
                                   
                                   approvalRow.getCell(1).font = { bold: true, size: 10 };
-                                  approvalRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+                                  approvalRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
                                   approvalRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
                                   
                                   approvalRow.getCell(4).font = { bold: true, size: 10 };
-                                  approvalRow.getCell(4).alignment = { horizontal: 'left', vertical: 'middle' };
+                                  approvalRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
                                   approvalRow.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
                                   
-                                  // Apply borders to all cells in approval row
-                                  for (let i = 1; i <= 6; i++) {
+                                  for (let i = 1; i <= (includeRemarksInReport ? 7 : 6); i++) {
                                     approvalRow.getCell(i).border = {
                                       top: { style: 'thin' },
                                       left: { style: 'thin' },
@@ -3134,7 +3155,7 @@ export default function App() {
                                   });
                                   const overallPercent = (totalActual / (totalTarget || 1)) * 100;
 
-                                  const summaryRow = worksheet.addRow(['Total Double Machine Days', '', totalDays, totalTarget, totalActual, `${overallPercent.toFixed(2)}%`]);
+                                  const summaryRow = worksheet.addRow(['Total Double Machine Days', '', totalDays, totalTarget, totalActual, `${overallPercent.toFixed(2)}%`, ...(includeRemarksInReport ? [''] : [])]);
                                   worksheet.mergeCells(`A${summaryRow.number}:B${summaryRow.number}`);
                                   summaryRow.font = { bold: true, size: 10 };
                                   summaryRow.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -3156,7 +3177,7 @@ export default function App() {
                                   worksheet.addRow([]); // Spacer
 
                                   // Table Header
-                                  const tableHeader = worksheet.addRow(['NO', 'Date', 'Part', 'Target', 'Actual', '%']);
+                                  const tableHeader = worksheet.addRow(['NO', 'Date', 'Part', 'Target', 'Actual', '%', ...(includeRemarksInReport ? ['Remarks'] : [])]);
                                   tableHeader.font = { bold: true };
                                   tableHeader.alignment = { horizontal: 'center' };
                                   tableHeader.eachCell((cell) => {
@@ -3184,7 +3205,8 @@ export default function App() {
                                         record.partName,
                                         record.targetShots,
                                         record.actualShots,
-                                        `${percent.toFixed(1)}%`
+                                        `${percent.toFixed(1)}%`,
+                                        ...(includeRemarksInReport ? [record.remarks || ''] : [])
                                       ]);
                                       row.alignment = { horizontal: 'center' };
                                       row.getCell(3).alignment = { horizontal: 'left' };
@@ -3201,7 +3223,7 @@ export default function App() {
                                 }
 
                                 const buffer = await workbook.xlsx.writeBuffer();
-                                saveAs(new Blob([buffer]), `double_machine_reports_${reportMonthFilter.replace(' ', '_')}.xlsx`);
+                                saveAs(new Blob([buffer]), `double_efficiency_reports_${includeRemarksInReport ? 'with_remarks_' : ''}${reportMonthFilter.replace(' ', '_')}.xlsx`);
                               }}
                               className="flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 bg-emerald-600 text-white rounded-xl text-[10px] lg:text-sm font-bold hover:bg-emerald-700 transition-all shadow-md shadow-emerald-200 cursor-pointer"
                             >
@@ -3381,29 +3403,36 @@ export default function App() {
                                       const opData = doubleMachineData[operator];
                                       
                                       worksheet.columns = [
-                                        { width: 5 }, { width: 15 }, { width: 35 }, { width: 12 }, { width: 12 }, { width: 10 }
+                                        { width: 5 }, { width: 15 }, { width: 35 }, { width: 12 }, { width: 12 }, { width: 10 },
+                                        ...(includeRemarksInReport ? [{ width: 25 }] : [])
                                       ];
 
+                                      const totalCols = includeRemarksInReport ? 7 : 6;
+                                      const lastColLetter = includeRemarksInReport ? 'G' : 'F';
+
                                       const headerRow = worksheet.addRow(['TM Rubber Pvt. Ltd']);
-                                      worksheet.mergeCells(`A${headerRow.number}:F${headerRow.number}`);
+                                      worksheet.mergeCells(`A${headerRow.number}:${lastColLetter}${headerRow.number}`);
                                       headerRow.getCell(1).font = { bold: true, size: 16 };
                                       headerRow.getCell(1).alignment = { horizontal: 'center' };
                                       headerRow.getCell(1).border = { bottom: { style: 'medium' } };
 
                                       const subHeaderRow = worksheet.addRow([`Efficiency Allowance For the Month of ${reportMonthFilter}`]);
-                                      worksheet.mergeCells(`A${subHeaderRow.number}:F${subHeaderRow.number}`);
+                                      worksheet.mergeCells(`A${subHeaderRow.number}:${lastColLetter}${subHeaderRow.number}`);
                                       subHeaderRow.getCell(1).font = { bold: true, italic: true, size: 11 };
                                       subHeaderRow.getCell(1).alignment = { horizontal: 'center' };
 
                                       const opNameRow = worksheet.addRow([operator]);
-                                      worksheet.mergeCells(`A${opNameRow.number}:F${opNameRow.number}`);
+                                      worksheet.mergeCells(`A${opNameRow.number}:${lastColLetter}${opNameRow.number}`);
                                       opNameRow.getCell(1).font = { bold: true, size: 14, underline: true };
                                       opNameRow.getCell(1).alignment = { horizontal: 'center' };
                                       worksheet.addRow([]);
 
-                                      const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '']);
-                                      worksheet.mergeCells(`B${approvalRow.number}:C${approvalRow.number}`);
-                                      worksheet.mergeCells(`E${approvalRow.number}:F${approvalRow.number}`);
+                                      const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '', '']);
+                                      worksheet.mergeCells(`A${approvalRow.number}:B${approvalRow.number}`);
+                                      worksheet.mergeCells(`D${approvalRow.number}:E${approvalRow.number}`);
+                                      if (includeRemarksInReport) {
+                                        worksheet.mergeCells(`F${approvalRow.number}:G${approvalRow.number}`);
+                                      }
                                       approvalRow.height = 60;
                                       
                                       approvalRow.getCell(1).font = { bold: true, size: 10 };
@@ -3414,7 +3443,7 @@ export default function App() {
                                       approvalRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
                                       approvalRow.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
                                       
-                                      for (let i = 1; i <= 6; i++) {
+                                      for (let i = 1; i <= (includeRemarksInReport ? 7 : 6); i++) {
                                         approvalRow.getCell(i).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
                                       }
                                       worksheet.addRow([]);
@@ -3424,7 +3453,7 @@ export default function App() {
                                       opData.forEach(day => day.records.forEach(r => { totalTarget += r.targetShots; totalActual += r.actualShots; }));
                                       const overallPercent = (totalActual / (totalTarget || 1)) * 100;
 
-                                      const summaryRow = worksheet.addRow(['Total Double Machine Days', '', totalDays, totalTarget, totalActual, `${overallPercent.toFixed(2)}%`]);
+                                      const summaryRow = worksheet.addRow(['Total Double Machine Days', '', totalDays, totalTarget, totalActual, `${overallPercent.toFixed(2)}%`, ...(includeRemarksInReport ? [''] : [])]);
                                       worksheet.mergeCells(`A${summaryRow.number}:B${summaryRow.number}`);
                                       summaryRow.font = { bold: true, size: 10 };
                                       summaryRow.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -3436,7 +3465,7 @@ export default function App() {
                                       }
                                       worksheet.addRow([]);
 
-                                      const tableHeader = worksheet.addRow(['NO', 'Date', 'Part', 'Target', 'Actual', '%']);
+                                      const tableHeader = worksheet.addRow(['NO', 'Date', 'Part', 'Target', 'Actual', '%', ...(includeRemarksInReport ? ['Remarks'] : [])]);
                                       tableHeader.font = { bold: true };
                                       tableHeader.alignment = { horizontal: 'center' };
                                       tableHeader.eachCell((cell) => {
@@ -3447,14 +3476,22 @@ export default function App() {
                                       let counter = 1;
                                       opData.forEach(day => day.records.forEach(record => {
                                         const percent = (record.actualShots / (record.targetShots || 1)) * 100;
-                                        const row = worksheet.addRow([counter++, record.productionDate, record.partName, record.targetShots, record.actualShots, `${percent.toFixed(1)}%`]);
+                                        const row = worksheet.addRow([
+                                          counter++, 
+                                          record.productionDate, 
+                                          record.partName, 
+                                          record.targetShots, 
+                                          record.actualShots, 
+                                          `${percent.toFixed(1)}%`,
+                                          ...(includeRemarksInReport ? [record.remarks || ''] : [])
+                                        ]);
                                         row.alignment = { horizontal: 'center' };
                                         row.getCell(3).alignment = { horizontal: 'left' };
                                         row.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
                                       }));
 
                                       const buffer = await workbook.xlsx.writeBuffer();
-                                      saveAs(new Blob([buffer]), `double_machine_report_${operator}_${reportMonthFilter.replace(' ', '_')}.xlsx`);
+                                      saveAs(new Blob([buffer]), `double_efficiency_report_${operator}_${includeRemarksInReport ? 'with_remarks_' : ''}${reportMonthFilter.replace(' ', '_')}.xlsx`);
                                     }}
                                     className="px-3 py-1.5 bg-white text-emerald-600 border border-emerald-200 rounded-lg text-xs font-bold hover:bg-emerald-50 transition-all flex items-center gap-2 cursor-pointer"
                                   >
@@ -3531,6 +3568,7 @@ export default function App() {
                                       <th className="border-2 border-black p-1 w-16 text-center">Target</th>
                                       <th className="border-2 border-black p-1 w-16 text-center">Actual</th>
                                       <th className="border-2 border-black p-1 w-12 text-center">%</th>
+                                      {includeRemarksInReport && <th className="border-2 border-black p-1 text-left">Remarks</th>}
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -3548,6 +3586,7 @@ export default function App() {
                                                 <td className="border-2 border-black p-1 text-center font-mono">{record.targetShots.toLocaleString()}</td>
                                                 <td className="border-2 border-black p-1 text-center font-mono">{record.actualShots.toLocaleString()}</td>
                                                 <td className="border-2 border-black p-1 text-center font-bold">{percent.toFixed(1)}</td>
+                                                {includeRemarksInReport && <td className="border-2 border-black p-1">{record.remarks || '-'}</td>}
                                               </tr>
                                             );
                                           })}
