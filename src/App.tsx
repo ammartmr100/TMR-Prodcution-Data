@@ -3784,7 +3784,22 @@ export default function App() {
                           </select>
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1 mb-1 block">Search Operator</label>
+                          <div className="flex items-center justify-between px-1">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Search Operator</label>
+                            <button 
+                              onClick={() => {
+                                const allOps = Object.keys(workerRecordData).filter(op => op.toLowerCase().includes(reportOperatorSearch.toLowerCase()));
+                                if (selectedOperatorsForReport.length === allOps.length && allOps.length > 0) {
+                                  setSelectedOperatorsForReport([]);
+                                } else {
+                                  setSelectedOperatorsForReport(allOps);
+                                }
+                              }}
+                              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                            >
+                              {selectedOperatorsForReport.length > 0 ? 'Clear All' : 'Select All'}
+                            </button>
+                          </div>
                           <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                             <input 
@@ -3822,9 +3837,140 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div ref={reportRef} className={`flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-100/50 print:bg-white print:p-0 ${showMobileReport ? 'block' : 'hidden lg:block'}`}>
+                        <div ref={reportRef} className={`flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-100/50 print:bg-white print:p-0 ${showMobileReport ? 'block' : 'hidden lg:block'}`}>
                         {viewedOperatorForReport || selectedOperatorsForReport.length > 0 ? (
                           <div className="space-y-8 print:space-y-0">
+                            {viewedOperatorForReport && (
+                              <div className="no-print mb-4 flex items-center justify-between bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse" />
+                                  <p className="text-sm font-bold text-indigo-900">Viewing: {viewedOperatorForReport}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {selectedOperatorsForReport.length > 0 && (
+                                    <button 
+                                      onClick={() => setViewedOperatorForReport(null)}
+                                      className="px-3 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 transition-all flex items-center gap-2 cursor-pointer"
+                                    >
+                                      Back to Batch ({selectedOperatorsForReport.length})
+                                    </button>
+                                  )}
+                                  <button 
+                                    onClick={async () => {
+                                      const workbook = new ExcelJS.Workbook();
+                                      const operator = viewedOperatorForReport;
+                                      const worksheet = workbook.addWorksheet(operator.substring(0, 31));
+                                      const opData = workerRecordData[operator];
+                                      
+                                      worksheet.columns = [
+                                        { width: 5 }, { width: 15 }, { width: 35 }, { width: 12 }, { width: 12 }, { width: 10 }, { width: 15 },
+                                        ...(includeRemarksInReport ? [{ width: 25 }] : [])
+                                      ];
+
+                                      const totalCols = includeRemarksInReport ? 8 : 7;
+                                      const lastColLetter = includeRemarksInReport ? 'H' : 'G';
+
+                                      const headerRow = worksheet.addRow(['TM Rubber Pvt. Ltd']);
+                                      worksheet.mergeCells(`A${headerRow.number}:${lastColLetter}${headerRow.number}`);
+                                      headerRow.getCell(1).font = { bold: true, size: 16 };
+                                      headerRow.getCell(1).alignment = { horizontal: 'center' };
+                                      headerRow.getCell(1).border = { bottom: { style: 'medium' } };
+
+                                      const subHeaderRow = worksheet.addRow([`Worker Production Record For the Month of ${reportMonthFilter}`]);
+                                      worksheet.mergeCells(`A${subHeaderRow.number}:${lastColLetter}${subHeaderRow.number}`);
+                                      subHeaderRow.getCell(1).font = { bold: true, italic: true, size: 11 };
+                                      subHeaderRow.getCell(1).alignment = { horizontal: 'center' };
+
+                                      const opNameRow = worksheet.addRow([operator]);
+                                      worksheet.mergeCells(`A${opNameRow.number}:${lastColLetter}${opNameRow.number}`);
+                                      opNameRow.getCell(1).font = { bold: true, size: 14, underline: true };
+                                      opNameRow.getCell(1).alignment = { horizontal: 'center' };
+                                      worksheet.addRow([]);
+
+                                      const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '', '', '']);
+                                      worksheet.mergeCells(`A${approvalRow.number}:B${approvalRow.number}`);
+                                      worksheet.mergeCells(`D${approvalRow.number}:E${approvalRow.number}`);
+                                      if (includeRemarksInReport) {
+                                        worksheet.mergeCells(`G${approvalRow.number}:H${approvalRow.number}`);
+                                      }
+                                      approvalRow.height = 60;
+                                      
+                                      approvalRow.getCell(1).font = { bold: true, size: 10 };
+                                      approvalRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                                      approvalRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+                                      
+                                      approvalRow.getCell(4).font = { bold: true, size: 10 };
+                                      approvalRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+                                      approvalRow.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+                                      
+                                      for (let i = 1; i <= (includeRemarksInReport ? 8 : 7); i++) {
+                                        approvalRow.getCell(i).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                                      }
+                                      worksheet.addRow([]);
+
+                                      let totalTarget = 0, totalActual = 0;
+                                      opData.forEach(day => day.records.forEach(r => { totalTarget += r.targetShots; totalActual += r.actualShots; }));
+                                      const overallPercent = (totalActual / (totalTarget || 1)) * 100;
+
+                                      const summaryRow = worksheet.addRow(['Total Records', '', opData.length, totalTarget, totalActual, `${overallPercent.toFixed(2)}%`, '', ...(includeRemarksInReport ? [''] : [])]);
+                                      worksheet.mergeCells(`A${summaryRow.number}:B${summaryRow.number}`);
+                                      summaryRow.font = { bold: true, size: 10 };
+                                      summaryRow.alignment = { horizontal: 'center', vertical: 'middle' };
+                                      summaryRow.height = 25;
+                                      for (let i = 1; i <= 7; i++) {
+                                        const cell = summaryRow.getCell(i);
+                                        cell.border = { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } };
+                                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+                                      }
+                                      worksheet.addRow([]);
+
+                                      const tableHeader = worksheet.addRow(['NO', 'Date', 'Part', 'Target', 'Actual', '%', 'Time', ...(includeRemarksInReport ? ['Remarks'] : [])]);
+                                      tableHeader.font = { bold: true };
+                                      tableHeader.alignment = { horizontal: 'center' };
+                                      tableHeader.eachCell((cell) => {
+                                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+                                        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                                      });
+
+                                      let counter = 1;
+                                      opData.forEach(day => day.records.forEach(record => {
+                                        const percent = (record.actualShots / (record.targetShots || 1)) * 100;
+                                        const row = worksheet.addRow([
+                                          counter++, 
+                                          record.productionDate, 
+                                          record.partName, 
+                                          record.targetShots, 
+                                          record.actualShots, 
+                                          `${percent.toFixed(1)}%`,
+                                          record.time || '-',
+                                          ...(includeRemarksInReport ? [record.remarks || ''] : [])
+                                        ]);
+                                        row.alignment = { horizontal: 'center' };
+                                        row.getCell(3).alignment = { horizontal: 'left' };
+                                        row.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
+                                      }));
+
+                                      const buffer = await workbook.xlsx.writeBuffer();
+                                      saveAs(new Blob([buffer]), `worker_record_${operator}_${includeRemarksInReport ? 'with_remarks_' : ''}${reportMonthFilter.replace(' ', '_')}.xlsx`);
+                                    }}
+                                    className="px-3 py-1.5 bg-white text-emerald-600 border border-emerald-200 rounded-lg text-xs font-bold hover:bg-emerald-50 transition-all flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Export This
+                                  </button>
+                                  {!selectedOperatorsForReport.includes(viewedOperatorForReport) && (
+                                    <button 
+                                      onClick={() => {
+                                        setSelectedOperatorsForReport([...selectedOperatorsForReport, viewedOperatorForReport]);
+                                      }}
+                                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all cursor-pointer"
+                                    >
+                                      Add to Batch
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                             {(viewedOperatorForReport ? [viewedOperatorForReport] : selectedOperatorsForReport).map((operator, opIdx, arr) => (
                               <div key={operator} className={`bg-white shadow-xl border border-slate-200 rounded-sm p-8 mx-auto max-w-[95%] font-calibri text-black min-h-[1000px] print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-none print:min-h-0 ${opIdx < arr.length - 1 ? 'page-break' : ''}`}>
                                 <div className="text-center mb-6">
