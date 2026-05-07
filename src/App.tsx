@@ -19,6 +19,7 @@ import {
   AlertTriangle, 
   Trash2, 
   Package, 
+  ClipboardList,
   Search,
   Filter,
   Download,
@@ -262,6 +263,10 @@ export default function App() {
 
   const [showDoubleMachineReport, setShowDoubleMachineReport] = useState(false);
   const [showWorkerRecordReport, setShowWorkerRecordReport] = useState(false);
+  const [showDailyWorkerReport, setShowDailyWorkerReport] = useState(false);
+  const [selectedDatesForDailyReport, setSelectedDatesForDailyReport] = useState<string[]>([]);
+  const [selectedShiftForDailyReport, setSelectedShiftForDailyReport] = useState<'Day' | 'Night' | 'Both'>('Both');
+  const [dailyReportSearch, setDailyReportSearch] = useState('');
   const [includeRemarksInReport, setIncludeRemarksInReport] = useState(false);
   const [reportMonthFilter, setReportMonthFilter] = useState<string>('');
   const [productionOrderMonth, setProductionOrderMonth] = useState<string>('');
@@ -1046,6 +1051,30 @@ export default function App() {
     return result;
   }, [data, reportMonthFilter]);
 
+  const dailyReportData = useMemo(() => {
+    const filtered = data.filter(p => {
+      const isDateMatch = selectedDatesForDailyReport.length === 0 || selectedDatesForDailyReport.includes(p.productionDate);
+      const isShiftMatch = selectedShiftForDailyReport === 'Both' || p.shift === selectedShiftForDailyReport;
+      return isDateMatch && isShiftMatch;
+    });
+
+    const grouped: Record<string, Record<string, Record<string, any[]>>> = {};
+    filtered.forEach(p => {
+      if (!grouped[p.productionDate]) grouped[p.productionDate] = {};
+      if (!grouped[p.productionDate][p.shift]) grouped[p.productionDate][p.shift] = {};
+      const opName = p.operator || 'Unknown';
+      if (!grouped[p.productionDate][p.shift][opName]) grouped[p.productionDate][p.shift][opName] = [];
+      grouped[p.productionDate][p.shift][opName].push(p);
+    });
+
+    return grouped;
+  }, [data, selectedDatesForDailyReport, selectedShiftForDailyReport]);
+
+  const availableDatesForDailyReport = useMemo(() => {
+    const dates = [...new Set(data.map(p => p.productionDate))];
+    return dates.sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime());
+  }, [data]);
+
   const filteredDatesList = useMemo(() => {
     return uniqueDates.filter(date => {
       const formatted = parseDate(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -1598,6 +1627,17 @@ export default function App() {
           >
             <Users className="w-5 h-5 shrink-0" />
             {!isSidebarCollapsed && <span className="truncate">Worker Record</span>}
+          </button>
+
+          <button 
+            onClick={() => {
+              setShowDailyWorkerReport(true);
+            }}
+            title="Daily Worker Report"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-all ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
+          >
+            <ClipboardList className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="truncate">Daily Worker Report</span>}
           </button>
 
           <button 
@@ -3646,6 +3686,337 @@ export default function App() {
                           <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4">
                             <Activity className="w-16 h-16 opacity-20" />
                             <p className="text-lg font-medium">Select an operator from the left to view their report</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <AnimatePresence>
+              {showDailyWorkerReport && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center"
+                >
+                  <motion.div 
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    className="bg-white w-full h-full overflow-hidden flex flex-col"
+                  >
+                    <div className="p-3 lg:p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 no-print">
+                      <div className="flex items-center gap-2 lg:gap-3">
+                        <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white shrink-0">
+                          <ClipboardList className="w-4 h-4 lg:w-5 lg:h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm lg:text-lg font-bold text-slate-900 leading-tight truncate">
+                            Daily Worker Report
+                          </h3>
+                          <p className="text-[9px] lg:text-[10px] text-slate-500 font-medium hidden sm:block">Production records grouped by Date and Shift</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 lg:gap-3 no-print">
+                        <button 
+                          onClick={() => {
+                            setShowDailyWorkerReport(false);
+                            setSelectedDatesForDailyReport([]);
+                            setSelectedShiftForDailyReport('Both');
+                          }}
+                          className="p-2 hover:bg-slate-200 rounded-full transition-colors cursor-pointer"
+                        >
+                          <X className="w-6 h-6 text-slate-400" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-hidden flex flex-col lg:flex-row relative">
+                      {/* Sidebar Filters */}
+                      <div className="w-full lg:w-64 border-r border-slate-100 overflow-y-auto bg-slate-50/30 p-4 pt-2 flex flex-col gap-4">
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1 mb-1 block">Filter by Shift</label>
+                          <div className="flex bg-white p-1 rounded-lg border border-slate-200">
+                            {(['Day', 'Night', 'Both'] as const).map(shift => (
+                              <button
+                                key={shift}
+                                onClick={() => setSelectedShiftForDailyReport(shift)}
+                                className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-all ${selectedShiftForDailyReport === shift ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
+                              >
+                                {shift}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                          <div className="flex items-center justify-between px-1 mb-1">
+                            <button 
+                              onClick={() => setSelectedDatesForDailyReport([])}
+                              className="text-[10px] font-bold text-slate-400 hover:text-red-500 uppercase tracking-tight cursor-pointer"
+                            >
+                              Clear
+                            </button>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Filter by Date</label>
+                            <button 
+                              onClick={() => {
+                                const visible = availableDatesForDailyReport.filter(d => {
+                                  const formatted = parseDate(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                  const search = dailyReportSearch.toLowerCase();
+                                  return d.toLowerCase().includes(search) || formatted.toLowerCase().includes(search);
+                                });
+                                setSelectedDatesForDailyReport([...new Set([...selectedDatesForDailyReport, ...visible])]);
+                              }}
+                              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-tight cursor-pointer"
+                            >
+                              Select All
+                            </button>
+                          </div>
+                          <div className="relative mb-2">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                            <input 
+                              type="text"
+                              placeholder="Search date..."
+                              value={dailyReportSearch}
+                              onChange={(e) => setDailyReportSearch(e.target.value)}
+                              className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                          </div>
+                          <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-1">
+                            {availableDatesForDailyReport.filter(d => {
+                              const formatted = parseDate(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                              const search = dailyReportSearch.toLowerCase();
+                              return d.toLowerCase().includes(search) || formatted.toLowerCase().includes(search);
+                            }).map(date => (
+                              <button
+                                key={date}
+                                onClick={() => {
+                                  if (selectedDatesForDailyReport.includes(date)) {
+                                    setSelectedDatesForDailyReport(selectedDatesForDailyReport.filter(d => d !== date));
+                                  } else {
+                                    setSelectedDatesForDailyReport([...selectedDatesForDailyReport, date]);
+                                  }
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all ${selectedDatesForDailyReport.includes(date) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-white hover:shadow-sm'}`}
+                              >
+                                {date}
+                                {selectedDatesForDailyReport.includes(date) && <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Report View */}
+                      <div className="flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-100/50 print:bg-white print:p-0">
+                        {selectedDatesForDailyReport.length > 0 ? (
+                          <div className="space-y-12 print:space-y-0">
+                            {availableDatesForDailyReport
+                              .filter(date => selectedDatesForDailyReport.includes(date))
+                              .map((date, dateIdx, dateArr) => (
+                                <div key={date} className="space-y-8">
+                                  {Object.keys(dailyReportData[date] || {}).map((shift, shiftIdx, shiftArr) => (
+                                    <div 
+                                      key={`${date}-${shift}`}
+                                      className={`bg-white shadow-xl border border-slate-200 rounded-sm p-8 mx-auto max-w-[95%] font-calibri text-black min-h-[1000px] print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-none print:min-h-0 ${dateIdx < dateArr.length - 1 || shiftIdx < shiftArr.length - 1 ? 'page-break' : ''}`}
+                                    >
+                                      {/* Header */}
+                                      <div className="text-center mb-8 relative">
+                                        <div className="absolute right-0 top-0 no-print">
+                                          <button 
+                                            onClick={async () => {
+                                              const workbook = new ExcelJS.Workbook();
+                                              const worksheet = workbook.addWorksheet(`${date}_${shift}`.substring(0, 31));
+                                              const ops = dailyReportData[date][shift];
+
+                                              worksheet.columns = [
+                                                { width: 5 }, { width: 25 }, { width: 35 }, { width: 12 }, { width: 12 }, { width: 10 }, { width: 15 }, { width: 25 }
+                                              ];
+
+                                              const headerRow = worksheet.addRow(['TM Rubber Pvt. Ltd']);
+                                              worksheet.mergeCells('A1:H1');
+                                              headerRow.getCell(1).font = { bold: true, size: 16 };
+                                              headerRow.getCell(1).alignment = { horizontal: 'center' };
+                                              headerRow.getCell(1).border = { bottom: { style: 'medium' } };
+
+                                              const subHeaderRow = worksheet.addRow([`Daily Worker Production Report - ${date} (${shift} Shift)`]);
+                                              worksheet.mergeCells('A2:H2');
+                                              subHeaderRow.getCell(1).font = { bold: true, size: 12 };
+                                              subHeaderRow.getCell(1).alignment = { horizontal: 'center' };
+                                              worksheet.addRow([]);
+
+                                              const tableHeader = worksheet.addRow(['NO', 'Operator Name', 'Part Name', 'Target', 'Actual', '%', 'Time', 'Remarks']);
+                                              tableHeader.font = { bold: true };
+                                              tableHeader.alignment = { horizontal: 'center' };
+                                              tableHeader.eachCell((cell) => {
+                                                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+                                                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                                              });
+
+                                              let counter = 1;
+                                              const operators = Object.keys(ops).sort();
+                                              operators.forEach(operator => {
+                                                const opRecords = ops[operator];
+                                                const startRow = worksheet.lastRow ? worksheet.lastRow.number + 1 : 4;
+                                                
+                                                opRecords.forEach((record, rIdx) => {
+                                                  const percent = (record.actualShots / (record.targetShots || 1)) * 100;
+                                                  const row = worksheet.addRow([
+                                                    rIdx === 0 ? counter++ : '',
+                                                    rIdx === 0 ? operator : '',
+                                                    record.partName,
+                                                    record.targetShots,
+                                                    record.actualShots,
+                                                    `${percent.toFixed(1)}%`,
+                                                    record.time || '-',
+                                                    record.remarks || ''
+                                                  ]);
+                                                  row.alignment = { horizontal: 'center', vertical: 'middle' };
+                                                  row.getCell(2).alignment = { horizontal: 'left' };
+                                                  row.getCell(3).alignment = { horizontal: 'left' };
+                                                  row.getCell(8).alignment = { horizontal: 'left' };
+                                                  row.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
+                                                });
+
+                                                if (opRecords.length > 1) {
+                                                  const endRow = startRow + opRecords.length - 1;
+                                                  worksheet.mergeCells(`A${startRow}:A${endRow}`);
+                                                  worksheet.mergeCells(`B${startRow}:B${endRow}`);
+                                                }
+                                              });
+
+                                              const flattenedOps = Object.values(ops).flat() as any[];
+                                              const totalTargetShots = flattenedOps.reduce((sum: number, r: any) => sum + (r.targetShots || 0), 0);
+                                              const totalActualShots = flattenedOps.reduce((sum: number, r: any) => sum + (r.actualShots || 0), 0);
+                                              const totalPercent = (totalActualShots / (totalTargetShots || 1)) * 100;
+
+                                              const footerRow = worksheet.addRow(['TOTALS', '', '', 
+                                                totalTargetShots,
+                                                totalActualShots,
+                                                `${totalPercent.toFixed(1)}%`,
+                                                '',
+                                                ''
+                                              ]);
+                                              footerRow.font = { bold: true };
+                                              footerRow.alignment = { horizontal: 'center' };
+                                              for (let i = 1; i <= 8; i++) {
+                                                footerRow.getCell(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+                                                footerRow.getCell(i).border = { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } };
+                                              }
+
+                                              const buffer = await workbook.xlsx.writeBuffer();
+                                              saveAs(new Blob([buffer]), `daily_report_${date}_${shift}.xlsx`);
+                                            }}
+                                            className="px-3 py-1.5 bg-white text-emerald-600 border border-emerald-200 rounded-lg text-xs font-bold hover:bg-emerald-50 transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                                          >
+                                            <Download className="w-3.5 h-3.5" />
+                                            Export This
+                                          </button>
+                                        </div>
+                                        <h1 className="text-2xl font-bold border-b-2 border-black inline-block px-8 pb-1 mb-2">TM Rubber Pvt. Ltd</h1>
+                                        <p className="text-xl font-bold uppercase tracking-widest">{date} - {shift} Shift</p>
+                                        <p className="text-sm italic font-bold text-slate-500">Daily Worker Production Report</p>
+                                      </div>
+
+                                      {/* Main Table */}
+                                      <table className="w-full border-collapse border-2 border-black text-xs font-bold">
+                                        <thead>
+                                          <tr className="bg-slate-50 font-black">
+                                            <th className="border-2 border-black p-2 w-10 text-center">NO</th>
+                                            <th className="border-2 border-black p-2 text-left">Operator Name</th>
+                                            <th className="border-2 border-black p-2 text-left">Part Name</th>
+                                            <th className="border-2 border-black p-2 w-20 text-center">Target</th>
+                                            <th className="border-2 border-black p-2 w-20 text-center">Actual</th>
+                                            <th className="border-2 border-black p-2 w-16 text-center">%</th>
+                                            <th className="border-2 border-black p-2 w-20 text-center">Time</th>
+                                            <th className="border-2 border-black p-2 text-left">Remarks</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {(() => {
+                                            let counter = 1;
+                                            const ops = dailyReportData[date][shift];
+                                            return Object.keys(ops).sort().map(operator => (
+                                              <React.Fragment key={operator}>
+                                                {ops[operator].map((record, rIdx) => {
+                                                  const percent = (record.actualShots / (record.targetShots || 1)) * 100;
+                                                  return (
+                                                    <tr key={`${operator}-${rIdx}`} className="hover:bg-slate-50 border-b-2 border-black">
+                                                      {rIdx === 0 ? (
+                                                        <td rowSpan={ops[operator].length} className="border-2 border-black p-2 text-center align-middle">{counter++}</td>
+                                                      ) : null}
+                                                      {rIdx === 0 ? (
+                                                        <td rowSpan={ops[operator].length} className="border-2 border-black p-2 font-black align-middle">{operator}</td>
+                                                      ) : null}
+                                                      <td className="border-2 border-black p-2 uppercase">{record.partName}</td>
+                                                      <td className="border-2 border-black p-2 text-center font-mono">{record.targetShots.toLocaleString()}</td>
+                                                      <td className="border-2 border-black p-2 text-center font-mono">{record.actualShots.toLocaleString()}</td>
+                                                      <td className="border-2 border-black p-2 text-center font-black">{percent.toFixed(1)}%</td>
+                                                      <td className="border-2 border-black p-2 text-center font-mono">{record.time || '-'}</td>
+                                                      <td className="border-2 border-black p-2 text-left">{record.remarks || '-'}</td>
+                                                    </tr>
+                                                  );
+                                                })}
+                                              </React.Fragment>
+                                            ));
+                                          })()}
+                                        </tbody>
+                                        <tfoot>
+                                          <tr className="bg-slate-100 font-black">
+                                            <td colSpan={3} className="border-2 border-black p-2 text-right">TOTALS</td>
+                                            <td className="border-2 border-black p-2 text-center">
+                                              {(() => {
+                                                const flattened = Object.values(dailyReportData[date][shift]).flat() as any[];
+                                                return flattened.reduce((sum: number, r: any) => sum + (r.targetShots || 0), 0).toLocaleString();
+                                              })()}
+                                            </td>
+                                            <td className="border-2 border-black p-2 text-center">
+                                              {(() => {
+                                                const flattened = Object.values(dailyReportData[date][shift]).flat() as any[];
+                                                return flattened.reduce((sum: number, r: any) => sum + (r.actualShots || 0), 0).toLocaleString();
+                                              })()}
+                                            </td>
+                                            <td className="border-2 border-black p-2 text-center">
+                                              {(() => {
+                                                const flattened = Object.values(dailyReportData[date][shift]).flat() as any[];
+                                                const totalTarget = flattened.reduce((sum: number, r: any) => sum + (r.targetShots || 0), 0);
+                                                const totalActual = flattened.reduce((sum: number, r: any) => sum + (r.actualShots || 0), 0);
+                                                return ((totalActual / (totalTarget || 1)) * 100).toFixed(1);
+                                              })()}%
+                                            </td>
+                                            <td className="border-2 border-black p-2 font-mono" colSpan={2}></td>
+                                          </tr>
+                                        </tfoot>
+                                      </table>
+                                      
+                                      {/* Signatures */}
+                                      <div className="mt-12 grid grid-cols-3 gap-8">
+                                        <div className="text-center">
+                                          <div className="border-b-2 border-black h-8 mb-2"></div>
+                                          <p className="text-[10px] font-bold uppercase">Prepared By</p>
+                                        </div>
+                                        <div className="text-center">
+                                          <div className="border-b-2 border-black h-8 mb-2"></div>
+                                          <p className="text-[10px] font-bold uppercase">Production Head</p>
+                                        </div>
+                                        <div className="text-center">
+                                          <div className="border-b-2 border-black h-8 mb-2"></div>
+                                          <p className="text-[10px] font-bold uppercase">Authorised Signatory</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4">
+                            <Calendar className="w-16 h-16 opacity-20" />
+                            <p className="text-lg font-medium">Select one or more dates from the left to generate report</p>
                           </div>
                         )}
                       </div>
