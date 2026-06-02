@@ -203,6 +203,24 @@ const ChartCard = ({ title, children, className = "", action, heightClass = "h-[
 export default function App() {
   const [data, setData] = useState<CleanRecord[]>([]);
   const [planData, setPlanData] = useState<PlanRecord[]>([]);
+  const [partCustomerList, setPartCustomerList] = useState<any[]>([]);
+
+  const partCustomerMap = useMemo(() => {
+    const map = new Map<string, { partName: string; partNo: string; customer: string }>();
+    partCustomerList.forEach((row: any) => {
+      const colE = row['Part No. & Name'] || '';
+      const key = colE.toString().trim().toLowerCase();
+      if (key) {
+        map.set(key, {
+          partName: row['Part Name'] || '',
+          partNo: row['Part No. '] || '',
+          customer: row['Customer'] || ''
+        });
+      }
+    });
+    return map;
+  }, [partCustomerList]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -255,6 +273,10 @@ export default function App() {
   const [selectedOperatorsForReport, setSelectedOperatorsForReport] = useState<string[]>([]);
   const [viewedOperatorForReport, setViewedOperatorForReport] = useState<string | null>(null);
   const [showMobileReport, setShowMobileReport] = useState(false);
+  
+  const [selectedOperatorsForCustomerReport, setSelectedOperatorsForCustomerReport] = useState<string[]>([]);
+  const [viewedOperatorForCustomerReport, setViewedOperatorForCustomerReport] = useState<string | null>(null);
+  const [showMobileCustomerReport, setShowMobileCustomerReport] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const productionSummaryRef = useRef<HTMLDivElement>(null);
   const productionDataRef = useRef<HTMLDivElement>(null);
@@ -262,6 +284,7 @@ export default function App() {
   const planVsActualRef = useRef<HTMLDivElement>(null);
 
   const [showDoubleMachineReport, setShowDoubleMachineReport] = useState(false);
+  const [showDoubleMachineCustomerReport, setShowDoubleMachineCustomerReport] = useState(false);
   const [showWorkerRecordReport, setShowWorkerRecordReport] = useState(false);
   const [showDailyWorkerReport, setShowDailyWorkerReport] = useState(false);
   const [selectedDatesForDailyReport, setSelectedDatesForDailyReport] = useState<string[]>([]);
@@ -310,9 +333,30 @@ export default function App() {
     
     setError(null);
     try {
-      const prodResponse = await fetch('https://docs.google.com/spreadsheets/d/1WfyeCa2arAJszBmo1aDQm-jE-MWAgGcTSTgHpOPjE4w/export?format=csv');
+      const [prodResponse, mappingResponse] = await Promise.all([
+        fetch('https://docs.google.com/spreadsheets/d/1WfyeCa2arAJszBmo1aDQm-jE-MWAgGcTSTgHpOPjE4w/export?format=csv'),
+        fetch('https://docs.google.com/spreadsheets/d/1kUh7ep2r94cRyuvt5nJ0QsutbRfjxHDDWZj3FexcKwE/export?format=csv').catch(e => {
+          console.warn('Failed to fetch customer mapping:', e);
+          return null;
+        })
+      ]);
+
       if (!prodResponse.ok) throw new Error('Failed to fetch production data');
       const prodCsv = await prodResponse.text();
+      
+      if (mappingResponse && mappingResponse.ok) {
+        const mappingCsv = await mappingResponse.text();
+        Papa.parse(mappingCsv, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (mappingResults) => {
+            setPartCustomerList(mappingResults.data || []);
+          },
+          error: (err) => {
+            console.warn('Failed to parse customer mapping:', err);
+          }
+        });
+      }
       
       Papa.parse(prodCsv, {
         header: true,
@@ -1615,6 +1659,18 @@ export default function App() {
           >
             <Activity className="w-5 h-5 shrink-0" />
             {!isSidebarCollapsed && <span className="truncate">Double Eff. (Remarks)</span>}
+          </button>
+
+          <button 
+            onClick={() => {
+              setShowDoubleMachineCustomerReport(true);
+              setIncludeRemarksInReport(true);
+            }}
+            title="Double Eff. (Customer)"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-all ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
+          >
+            <Activity className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="truncate">Double Eff. (Customer)</span>}
           </button>
 
           <button 
@@ -3671,6 +3727,597 @@ export default function App() {
                                                 <td className="border-2 border-black p-2 text-center font-mono">{record.actualShots.toLocaleString()}</td>
                                                 <td className="border-2 border-black p-2 text-center font-black">{percent.toFixed(1)}%</td>
                                                 {includeRemarksInReport && <td className="border-2 border-black p-2">{record.remarks || '-'}</td>}
+                                              </tr>
+                                            );
+                                          })}
+                                        </React.Fragment>
+                                      ));
+                                    })()}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4">
+                            <Activity className="w-16 h-16 opacity-20" />
+                            <p className="text-lg font-medium">Select an operator from the left to view their report</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {showDoubleMachineCustomerReport && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center"
+                >
+                  <motion.div 
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    className="bg-white w-full h-full overflow-hidden flex flex-col"
+                  >
+                    <div className="p-3 lg:p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 no-print">
+                      <div className="flex items-center gap-2 lg:gap-3">
+                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0">
+                          <Activity className="w-4 h-4 lg:w-5 lg:h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm lg:text-lg font-bold text-slate-900 leading-tight truncate">
+                            Double Efficiency Report with Customer
+                          </h3>
+                          <p className="text-[9px] lg:text-[10px] text-slate-500 font-medium hidden sm:block">Operators operating multiple machines in a single day</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 lg:gap-3 no-print">
+                        {selectedOperatorsForCustomerReport.length > 0 && (
+                          <div className={`${showMobileCustomerReport ? 'flex' : 'hidden lg:flex'} items-center gap-2`}>
+                            <button 
+                              onClick={async () => {
+                                const workbook = new ExcelJS.Workbook();
+                                
+                                for (const operator of selectedOperatorsForCustomerReport) {
+                                  const worksheet = workbook.addWorksheet(operator.substring(0, 31));
+                                  const opData = doubleMachineData[operator];
+                                  
+                                  // Column widths
+                                  worksheet.columns = [
+                                    { width: 8 },  // NO
+                                    { width: 20 }, // Date
+                                    { width: 35 }, // Part Name / Column A
+                                    { width: 25 }, // Part No. / Column B
+                                    { width: 20 }, // Customer / Column C
+                                    { width: 12 }, // Target
+                                    { width: 12 }, // Actual
+                                    { width: 10 }, // %
+                                    { width: 25 }  // Remarks
+                                  ];
+
+                                  // Header: TM Rubber Pvt. Ltd
+                                  const headerRow = worksheet.addRow(['TM Rubber Pvt. Ltd']);
+                                  worksheet.mergeCells(`A${headerRow.number}:I${headerRow.number}`);
+                                  headerRow.getCell(1).font = { bold: true, size: 16 };
+                                  headerRow.getCell(1).alignment = { horizontal: 'center' };
+                                  headerRow.getCell(1).border = { bottom: { style: 'medium' } };
+
+                                  // Sub-header: Efficiency Allowance
+                                  const subHeaderRow = worksheet.addRow([`Efficiency Allowance For the Month of ${reportMonthFilter}`]);
+                                  worksheet.mergeCells(`A${subHeaderRow.number}:I${subHeaderRow.number}`);
+                                  subHeaderRow.getCell(1).font = { bold: true, italic: true, size: 11 };
+                                  subHeaderRow.getCell(1).alignment = { horizontal: 'center' };
+
+                                  // Operator Name
+                                  const opNameRow = worksheet.addRow([operator]);
+                                  worksheet.mergeCells(`A${opNameRow.number}:I${opNameRow.number}`);
+                                  opNameRow.getCell(1).font = { bold: true, size: 14, underline: true };
+                                  opNameRow.getCell(1).alignment = { horizontal: 'center' };
+                                  worksheet.addRow([]); // Spacer
+
+                                  // Approval Section (Side-by-side like App UI)
+                                  const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '', 'Approved By', '', '']);
+                                  worksheet.mergeCells(`A${approvalRow.number}:B${approvalRow.number}`);
+                                  worksheet.mergeCells(`D${approvalRow.number}:F${approvalRow.number}`);
+                                  worksheet.mergeCells(`G${approvalRow.number}:I${approvalRow.number}`);
+                                  approvalRow.height = 60;
+                                  
+                                  approvalRow.getCell(1).font = { bold: true, size: 10 };
+                                  approvalRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                                  approvalRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+                                  
+                                  approvalRow.getCell(4).font = { bold: true, size: 10 };
+                                  approvalRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+                                  approvalRow.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+                                  
+                                  approvalRow.getCell(7).font = { bold: true, size: 10 };
+                                  approvalRow.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+                                  approvalRow.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+
+                                  for (let i = 1; i <= 9; i++) {
+                                    approvalRow.getCell(i).border = {
+                                      top: { style: 'thin' },
+                                      left: { style: 'thin' },
+                                      bottom: { style: 'thin' },
+                                      right: { style: 'thin' }
+                                    };
+                                  }
+                                  worksheet.addRow([]); // Spacer
+
+                                  // Summary Totals
+                                  const totalDays = opData.length;
+                                  let totalTarget = 0;
+                                  let totalActual = 0;
+                                  opData.forEach(day => {
+                                    day.records.forEach(r => {
+                                      totalTarget += r.targetShots;
+                                      totalActual += r.actualShots;
+                                    });
+                                  });
+                                  const overallPercent = (totalActual / (totalTarget || 1)) * 100;
+
+                                  const summaryRow = worksheet.addRow(['Total Double Machine Days', '', totalDays, '', '', totalTarget, totalActual, `${overallPercent.toFixed(2)}%`, '']);
+                                  worksheet.mergeCells(`A${summaryRow.number}:B${summaryRow.number}`);
+                                  summaryRow.font = { bold: true, size: 10 };
+                                  summaryRow.alignment = { horizontal: 'center', vertical: 'middle' };
+                                  summaryRow.height = 25;
+                                  for (let i = 1; i <= 9; i++) {
+                                    const cell = summaryRow.getCell(i);
+                                    cell.border = {
+                                      top: { style: 'medium' },
+                                      left: { style: 'medium' },
+                                      bottom: { style: 'medium' },
+                                      right: { style: 'medium' }
+                                    };
+                                    cell.fill = {
+                                      type: 'pattern',
+                                      pattern: 'solid',
+                                      fgColor: { argb: 'FFF9FAFB' }
+                                    };
+                                  }
+                                  worksheet.addRow([]); // Spacer
+
+                                  // Table Header
+                                  const tableHeader = worksheet.addRow(['NO', 'Date', 'Part Name', 'Part No.', 'Customer', 'Target', 'Actual', '%', 'Remarks']);
+                                  tableHeader.font = { bold: true };
+                                  tableHeader.alignment = { horizontal: 'center' };
+                                  tableHeader.eachCell((cell) => {
+                                    cell.fill = {
+                                      type: 'pattern',
+                                      pattern: 'solid',
+                                      fgColor: { argb: 'FFF5F5F5' }
+                                    };
+                                    cell.border = {
+                                      top: { style: 'thin' },
+                                      left: { style: 'thin' },
+                                      bottom: { style: 'thin' },
+                                      right: { style: 'thin' }
+                                    };
+                                  });
+
+                                  // Table Data
+                                  let counter = 1;
+                                  opData.forEach(day => {
+                                    day.records.forEach(record => {
+                                      const percent = (record.actualShots / (record.targetShots || 1)) * 100;
+                                      const key = record.partName.trim().toLowerCase();
+                                      const mapping = partCustomerMap.get(key);
+                                      const pName = mapping ? mapping.partName : record.partName;
+                                      const pNo = mapping ? mapping.partNo : '-';
+                                      const customer = mapping ? mapping.customer : '-';
+                                      const row = worksheet.addRow([
+                                        counter++,
+                                        record.productionDate,
+                                        pName,
+                                        pNo,
+                                        customer,
+                                        record.targetShots,
+                                        record.actualShots,
+                                        `${percent.toFixed(1)}%`,
+                                        record.remarks || ''
+                                      ]);
+                                      row.alignment = { horizontal: 'center' };
+                                      row.getCell(3).alignment = { horizontal: 'left' };
+                                      row.eachCell((cell) => {
+                                        cell.border = {
+                                          top: { style: 'thin' },
+                                          left: { style: 'thin' },
+                                          bottom: { style: 'thin' },
+                                          right: { style: 'thin' }
+                                        };
+                                      });
+                                    });
+                                  });
+                                }
+
+                                const buffer = await workbook.xlsx.writeBuffer();
+                                saveAs(new Blob([buffer]), `double_efficiency_customer_reports_${reportMonthFilter.replace(' ', '_')}.xlsx`);
+                              }}
+                              className="flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 bg-emerald-600 text-white rounded-xl text-[10px] lg:text-sm font-bold hover:bg-emerald-700 transition-all shadow-md shadow-emerald-200 cursor-pointer"
+                            >
+                              <Download className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                              <span className="hidden sm:inline">Export Selected XLSX</span>
+                              <span className="sm:hidden">Export</span>
+                            </button>
+                          </div>
+                        )}
+                        <button 
+                          onClick={() => {
+                            setShowDoubleMachineCustomerReport(false);
+                            setSelectedOperatorsForCustomerReport([]);
+                            setViewedOperatorForCustomerReport(null);
+                            setShowMobileCustomerReport(false);
+                          }}
+                          className="p-2 hover:bg-slate-200 rounded-full transition-colors cursor-pointer"
+                        >
+                          <X className="w-6 h-6 text-slate-400" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-hidden flex flex-col lg:flex-row relative">
+                      {/* Operator List & Filters */}
+                      <div className={`w-full lg:w-60 border-r border-slate-100 overflow-y-auto bg-slate-50/30 p-3 pt-2 flex flex-col gap-3 ${showMobileCustomerReport ? 'hidden lg:flex' : 'flex'}`}>
+                        <div className="lg:hidden flex items-center justify-between mb-2">
+                          <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Report Selection</h4>
+                          <button 
+                            onClick={() => {
+                              setShowDoubleMachineCustomerReport(false);
+                              setShowMobileCustomerReport(false);
+                            }}
+                            className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-400"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1 mb-1 block">Select Month</label>
+                          <select 
+                            value={reportMonthFilter}
+                            onChange={(e) => {
+                              setReportMonthFilter(e.target.value);
+                              setSelectedOperatorsForCustomerReport([]);
+                              setViewedOperatorForCustomerReport(null);
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                          >
+                            {availableReportMonths.map(month => (
+                              <option key={month} value={month}>{month}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1 mb-1 block">Search Operator</label>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                            <input 
+                              type="text"
+                              placeholder="Type name..."
+                              value={reportOperatorSearch}
+                              onChange={(e) => setReportOperatorSearch(e.target.value)}
+                              className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto space-y-2 mt-2 pr-1 custom-scrollbar">
+                          <div className="flex items-center justify-between px-2 mb-2">
+                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Operators Found</h4>
+                            <div className="flex items-center gap-2">
+                              {selectedOperatorsForCustomerReport.length > 0 && (
+                                <button 
+                                  onClick={() => setShowMobileCustomerReport(true)}
+                                  className="lg:hidden px-2 py-1 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 cursor-pointer shadow-sm"
+                                >
+                                  View Batch ({selectedOperatorsForCustomerReport.length})
+                                </button>
+                              )}
+                              <button 
+                                onClick={() => {
+                                  const allOps = Object.keys(doubleMachineData).filter(op => op.toLowerCase().includes(reportOperatorSearch.toLowerCase()));
+                                  if (selectedOperatorsForCustomerReport.length > 0) {
+                                    setSelectedOperatorsForCustomerReport([]);
+                                  } else {
+                                    setSelectedOperatorsForCustomerReport(allOps);
+                                  }
+                                }}
+                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                              >
+                                {selectedOperatorsForCustomerReport.length > 0 ? 'Clear All' : 'Select All'}
+                              </button>
+                            </div>
+                          </div>
+                          {Object.keys(doubleMachineData)
+                            .filter(op => op.toLowerCase().includes(reportOperatorSearch.toLowerCase()))
+                            .sort()
+                            .map(operator => (
+                            <div
+                              key={operator}
+                              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer flex items-center gap-3 ${
+                                viewedOperatorForCustomerReport === operator
+                                  ? 'bg-indigo-50 border-indigo-200' 
+                                  : 'text-slate-600 hover:bg-white hover:shadow-sm'
+                              }`}
+                              onClick={() => {
+                                setViewedOperatorForCustomerReport(operator);
+                                setShowMobileCustomerReport(true);
+                              }}
+                            >
+                              <div 
+                                className={`w-5 h-5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                                  selectedOperatorsForCustomerReport.includes(operator)
+                                    ? 'bg-indigo-600 border-indigo-600'
+                                    : 'bg-white border-slate-300 hover:border-indigo-400'
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (selectedOperatorsForCustomerReport.includes(operator)) {
+                                    setSelectedOperatorsForCustomerReport(selectedOperatorsForCustomerReport.filter(op => op !== operator));
+                                  } else {
+                                    setSelectedOperatorsForCustomerReport([...selectedOperatorsForCustomerReport, operator]);
+                                  }
+                                }}
+                              >
+                                {selectedOperatorsForCustomerReport.includes(operator) && <div className="w-2 h-2 bg-white rounded-sm" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="truncate">{operator}</div>
+                                <div className={`text-[10px] mt-0.5 ${viewedOperatorForCustomerReport === operator ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                  {doubleMachineData[operator].length} Double Days
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {Object.keys(doubleMachineData).filter(op => op.toLowerCase().includes(reportOperatorSearch.toLowerCase())).length === 0 && (
+                            <div className="text-center py-8 text-slate-400 text-xs italic">No operators found for this month</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Report Content */}
+                      <div ref={reportRef} className={`flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-100/50 print:bg-white print:p-0 ${showMobileCustomerReport ? 'block' : 'hidden lg:block'}`}>
+                        <div className="lg:hidden mb-4 no-print">
+                          <button 
+                            onClick={() => setShowMobileCustomerReport(false)}
+                            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                            Back to Operator List
+                          </button>
+                        </div>
+                        {viewedOperatorForCustomerReport || selectedOperatorsForCustomerReport.length > 0 ? (
+                          <div className="space-y-8 print:space-y-0">
+                            {viewedOperatorForCustomerReport && (
+                              <div className="no-print mb-4 flex items-center justify-between bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse" />
+                                  <p className="text-sm font-bold text-indigo-900">Viewing: {viewedOperatorForCustomerReport}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {selectedOperatorsForCustomerReport.length > 0 && (
+                                    <button 
+                                      onClick={() => setViewedOperatorForCustomerReport(null)}
+                                      className="px-3 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 transition-all flex items-center gap-2 cursor-pointer"
+                                    >
+                                      Back to Batch ({selectedOperatorsForCustomerReport.length})
+                                    </button>
+                                  )}
+                                  <button 
+                                    onClick={async () => {
+                                      const workbook = new ExcelJS.Workbook();
+                                      const operator = viewedOperatorForCustomerReport;
+                                      const worksheet = workbook.addWorksheet(operator.substring(0, 31));
+                                      const opData = doubleMachineData[operator];
+                                      
+                                      worksheet.columns = [
+                                        { width: 8 },  // NO
+                                        { width: 20 }, // Date
+                                        { width: 35 }, // Part Name / Column A
+                                        { width: 25 }, // Part No. / Column B
+                                        { width: 20 }, // Customer / Column C
+                                        { width: 12 }, // Target
+                                        { width: 12 }, // Actual
+                                        { width: 10 }, // %
+                                        { width: 25 }  // Remarks
+                                      ];
+
+                                      const headerRow = worksheet.addRow(['TM Rubber Pvt. Ltd']);
+                                      worksheet.mergeCells(`A${headerRow.number}:I${headerRow.number}`);
+                                      headerRow.getCell(1).font = { bold: true, size: 16 };
+                                      headerRow.getCell(1).alignment = { horizontal: 'center' };
+                                      headerRow.getCell(1).border = { bottom: { style: 'medium' } };
+
+                                      const subHeaderRow = worksheet.addRow([`Efficiency Allowance For the Month of ${reportMonthFilter}`]);
+                                      worksheet.mergeCells(`A${subHeaderRow.number}:I${subHeaderRow.number}`);
+                                      subHeaderRow.getCell(1).font = { bold: true, italic: true, size: 11 };
+                                      subHeaderRow.getCell(1).alignment = { horizontal: 'center' };
+
+                                      const opNameRow = worksheet.addRow([operator]);
+                                      worksheet.mergeCells(`A${opNameRow.number}:I${opNameRow.number}`);
+                                      opNameRow.getCell(1).font = { bold: true, size: 14, underline: true };
+                                      opNameRow.getCell(1).alignment = { horizontal: 'center' };
+                                      worksheet.addRow([]);
+
+                                      const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '', 'Approved By', '', '']);
+                                      worksheet.mergeCells(`A${approvalRow.number}:B${approvalRow.number}`);
+                                      worksheet.mergeCells(`D${approvalRow.number}:F${approvalRow.number}`);
+                                      worksheet.mergeCells(`G${approvalRow.number}:I${approvalRow.number}`);
+                                      approvalRow.height = 60;
+                                      
+                                      approvalRow.getCell(1).font = { bold: true, size: 10 };
+                                      approvalRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                                      approvalRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+                                      
+                                      approvalRow.getCell(4).font = { bold: true, size: 10 };
+                                      approvalRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+                                      approvalRow.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+                                      
+                                      approvalRow.getCell(7).font = { bold: true, size: 10 };
+                                      approvalRow.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+                                      approvalRow.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+
+                                      for (let i = 1; i <= 9; i++) {
+                                        approvalRow.getCell(i).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                                      }
+                                      worksheet.addRow([]);
+
+                                      const totalDays = opData.length;
+                                      let totalTarget = 0, totalActual = 0;
+                                      opData.forEach(day => day.records.forEach(r => { totalTarget += r.targetShots; totalActual += r.actualShots; }));
+                                      const overallPercent = (totalActual / (totalTarget || 1)) * 100;
+
+                                      const summaryRow = worksheet.addRow(['Total Double Machine Days', '', totalDays, '', '', totalTarget, totalActual, `${overallPercent.toFixed(2)}%`, '']);
+                                      worksheet.mergeCells(`A${summaryRow.number}:B${summaryRow.number}`);
+                                      summaryRow.font = { bold: true, size: 10 };
+                                      summaryRow.alignment = { horizontal: 'center', vertical: 'middle' };
+                                      summaryRow.height = 25;
+                                      for (let i = 1; i <= 9; i++) {
+                                        const cell = summaryRow.getCell(i);
+                                        cell.border = { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } };
+                                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+                                      }
+                                      worksheet.addRow([]);
+
+                                      const tableHeader = worksheet.addRow(['NO', 'Date', 'Part Name', 'Part No.', 'Customer', 'Target', 'Actual', '%', 'Remarks']);
+                                      tableHeader.font = { bold: true };
+                                      tableHeader.alignment = { horizontal: 'center' };
+                                      tableHeader.eachCell((cell) => {
+                                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+                                        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                                      });
+
+                                      let counter = 1;
+                                      opData.forEach(day => day.records.forEach(record => {
+                                        const percent = (record.actualShots / (record.targetShots || 1)) * 100;
+                                        const key = record.partName.trim().toLowerCase();
+                                        const mapping = partCustomerMap.get(key);
+                                        const pName = mapping ? mapping.partName : record.partName;
+                                        const pNo = mapping ? mapping.partNo : '-';
+                                        const customer = mapping ? mapping.customer : '-';
+                                        const row = worksheet.addRow([
+                                          counter++, 
+                                          record.productionDate, 
+                                          pName,
+                                          pNo,
+                                          customer,
+                                          record.targetShots, 
+                                          record.actualShots, 
+                                          `${percent.toFixed(1)}%`,
+                                          record.remarks || ''
+                                        ]);
+                                        row.alignment = { horizontal: 'center' };
+                                        row.getCell(3).alignment = { horizontal: 'left' };
+                                        row.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
+                                      }));
+
+                                      const buffer = await workbook.xlsx.writeBuffer();
+                                      saveAs(new Blob([buffer]), `double_efficiency_customer_report_${operator}_${reportMonthFilter.replace(' ', '_')}.xlsx`);
+                                    }}
+                                    className="px-3 py-1.5 bg-white text-emerald-600 border border-emerald-200 rounded-lg text-xs font-bold hover:bg-emerald-50 transition-all flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Export This
+                                  </button>
+                                  {!selectedOperatorsForCustomerReport.includes(viewedOperatorForCustomerReport) && (
+                                    <button 
+                                      onClick={() => {
+                                        setSelectedOperatorsForCustomerReport([...selectedOperatorsForCustomerReport, viewedOperatorForCustomerReport]);
+                                      }}
+                                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all cursor-pointer"
+                                    >
+                                      Add to Batch
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Determine which operators to display */}
+                            {(viewedOperatorForCustomerReport ? [viewedOperatorForCustomerReport] : selectedOperatorsForCustomerReport).map((operator, opIdx, arr) => (
+                              <div 
+                                key={operator} 
+                                className={`bg-white shadow-xl border border-slate-200 rounded-sm p-8 mx-auto max-w-[95%] font-calibri text-black min-h-[1000px] print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-none print:min-h-0 ${opIdx < arr.length - 1 ? 'page-break' : ''}`}
+                              >
+                                {/* Excel Style Header */}
+                                <div className="text-center mb-6">
+                                  <h1 className="text-2xl font-bold border-b-2 border-black inline-block px-8 pb-2 mb-3">TM Rubber Pvt. Ltd</h1>
+                                  <p className="text-sm italic font-bold mb-1">Efficiency Allowance For the Month of {reportMonthFilter}</p>
+                                  <p className="text-xl font-bold underline underline-offset-4">{operator}</p>
+                                </div>
+
+                                {/* Summary Totals */}
+                                {(() => {
+                                  const opData = doubleMachineData[operator];
+                                  const totalDays = opData.length;
+                                  let totalTarget = 0;
+                                  let totalActual = 0;
+                                  opData.forEach(day => {
+                                    day.records.forEach(r => {
+                                      totalTarget += r.targetShots;
+                                      totalActual += r.actualShots;
+                                    });
+                                  });
+                                  const overallPercent = (totalActual / (totalTarget || 1)) * 100;
+
+                                  return (
+                                    <div className="grid grid-cols-10 border-2 border-black mb-4 text-center font-bold text-xs">
+                                      <div className="col-span-3 p-2 border-r-2 border-black bg-slate-50 uppercase tracking-wider">Total Double Machine Days</div>
+                                      <div className="col-span-4 p-2 border-r-2 border-black text-xl">{totalDays}</div>
+                                      <div className="col-span-3 p-2 bg-slate-50 uppercase tracking-wider flex items-center justify-center gap-4">
+                                        <div className="text-[10px] text-slate-500">Target: {totalTarget.toLocaleString()}</div>
+                                        <div className="text-[10px] text-slate-500">Actual: {totalActual.toLocaleString()}</div>
+                                        <div className="text-indigo-600 font-black">{overallPercent.toFixed(2)}%</div>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+
+                                {/* Main Table */}
+                                <table className="w-full border-collapse border-2 border-black text-[11px] font-bold">
+                                  <thead>
+                                    <tr className="bg-slate-50 font-black">
+                                      <th className="border-2 border-black p-2 w-10 text-center">NO</th>
+                                      <th className="border-2 border-black p-2 w-24 text-center">Date</th>
+                                      <th className="border-2 border-black p-2 text-left">Part Name</th>
+                                      <th className="border-2 border-black p-2 text-left">Part No.</th>
+                                      <th className="border-2 border-black p-2 text-left">Customer</th>
+                                      <th className="border-2 border-black p-2 w-20 text-center">Target</th>
+                                      <th className="border-2 border-black p-2 w-20 text-center">Actual</th>
+                                      <th className="border-2 border-black p-2 w-16 text-center">%</th>
+                                      <th className="border-2 border-black p-2 text-left">Remarks</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(() => {
+                                      let counter = 1;
+                                      return doubleMachineData[operator].map((day) => (
+                                        <React.Fragment key={`${day.date}-${day.shift}`}>
+                                          {day.records.map((record, rIdx) => {
+                                            const percent = (record.actualShots / (record.targetShots || 1)) * 100;
+                                            const key = record.partName.trim().toLowerCase();
+                                            const mapping = partCustomerMap.get(key);
+                                            const pName = mapping ? mapping.partName : record.partName;
+                                            const pNo = mapping ? mapping.partNo : '-';
+                                            const customer = mapping ? mapping.customer : '-';
+                                            return (
+                                              <tr key={`${day.date}-${day.shift}-${rIdx}`} className="hover:bg-slate-50 border-b-2 border-black">
+                                                <td className="border-2 border-black p-2 text-center">{counter++}</td>
+                                                <td className="border-2 border-black p-2 text-center">{record.productionDate}</td>
+                                                <td className="border-2 border-black p-2 uppercase text-left">{pName}</td>
+                                                <td className="border-2 border-black p-2 uppercase text-left font-mono">{pNo}</td>
+                                                <td className="border-2 border-black p-2 uppercase text-left">{customer}</td>
+                                                <td className="border-2 border-black p-2 text-center font-mono">{record.targetShots.toLocaleString()}</td>
+                                                <td className="border-2 border-black p-2 text-center font-mono">{record.actualShots.toLocaleString()}</td>
+                                                <td className="border-2 border-black p-2 text-center font-black">{percent.toFixed(1)}%</td>
+                                                <td className="border-2 border-black p-2">{record.remarks || '-'}</td>
                                               </tr>
                                             );
                                           })}
