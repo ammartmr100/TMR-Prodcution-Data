@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Papa from 'papaparse';
+import DoubleMachineLossReport from './components/DoubleMachineLossReport';
 
 // --- Types ---
 
@@ -285,6 +286,7 @@ export default function App() {
 
   const [showDoubleMachineReport, setShowDoubleMachineReport] = useState(false);
   const [showDoubleMachineCustomerReport, setShowDoubleMachineCustomerReport] = useState(false);
+  const [showDoubleMachineLossTargetReport, setShowDoubleMachineLossTargetReport] = useState(false);
   const [showWorkerRecordReport, setShowWorkerRecordReport] = useState(false);
   const [showDailyWorkerReport, setShowDailyWorkerReport] = useState(false);
   const [selectedDatesForDailyReport, setSelectedDatesForDailyReport] = useState<string[]>([]);
@@ -1671,6 +1673,17 @@ export default function App() {
           >
             <Activity className="w-5 h-5 shrink-0" />
             {!isSidebarCollapsed && <span className="truncate">Double Eff. (Customer)</span>}
+          </button>
+
+          <button 
+            onClick={() => {
+              setShowDoubleMachineLossTargetReport(true);
+            }}
+            title="Double Eff. (Loss Target)"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-all ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
+          >
+            <Activity className="w-5 h-5 shrink-0" />
+            {!isSidebarCollapsed && <span className="truncate">Double Eff. (Loss Target)</span>}
           </button>
 
           <button 
@@ -4341,6 +4354,17 @@ export default function App() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            <DoubleMachineLossReport
+              isOpen={showDoubleMachineLossTargetReport}
+              onClose={() => setShowDoubleMachineLossTargetReport(false)}
+              data={data}
+              reportMonthFilter={reportMonthFilter}
+              availableReportMonths={availableReportMonths}
+              setReportMonthFilter={setReportMonthFilter}
+              partCustomerMap={partCustomerMap}
+            />
+
             <AnimatePresence>
               {showDailyWorkerReport && (
                 <motion.div 
