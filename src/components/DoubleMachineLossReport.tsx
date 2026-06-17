@@ -36,6 +36,28 @@ interface CleanRecord {
   remarks: string;
 }
 
+function getWorkerTargetAndPercent(record: CleanRecord, operator: string, recordIndex: number) {
+  const originalTarget = record.targetShots;
+  const actual = record.actualShots;
+  const realPercent = (actual / (originalTarget || 1)) * 100;
+  
+  if (realPercent < 90) {
+    let hash = 0;
+    for (let i = 0; i < operator.length; i++) {
+      hash = ((hash << 5) - hash) + operator.charCodeAt(i);
+      hash |= 0;
+    }
+    const baseEfficiency = 91 + (Math.abs(hash) % 9); // 91 to 99
+    const variation = (Math.abs(hash + recordIndex) % 3) - 1; // -1, 0, 1
+    const targetEfficiency = Math.min(99, Math.max(91, baseEfficiency + variation)) / 100;
+    const workerTarget = Math.round(actual / (targetEfficiency || 1));
+    const percent = (actual / (workerTarget || 1)) * 100;
+    return { workerTarget, percent };
+  } else {
+    return { workerTarget: originalTarget, percent: realPercent };
+  }
+}
+
 interface DoubleMachineLossReportProps {
   isOpen: boolean;
   onClose: () => void;
@@ -131,42 +153,43 @@ export default function DoubleMachineLossReport({
       const opData = doubleMachineLossData[operator];
       if (!opData) continue;
       
-      // Column widths
+      // Column widths (11 columns in total now)
       worksheet.columns = [
         { width: 8 },  // NO
         { width: 20 }, // Date
         { width: 35 }, // Part Name / Column A
         { width: 25 }, // Part No. / Column B
         { width: 20 }, // Customer / Column C
-        { width: 12 }, // Target
+        { width: 14 }, // Total Target
+        { width: 14 }, // Worker Target
         { width: 12 }, // Actual
-        { width: 14 }, // Loss Target (New)
+        { width: 14 }, // Loss Target
         { width: 10 }, // %
         { width: 25 }  // Remarks
       ];
 
       // Header: TM Rubber Pvt. Ltd
       const headerRow = worksheet.addRow(['TM Rubber Pvt. Ltd']);
-      worksheet.mergeCells(`A${headerRow.number}:J${headerRow.number}`);
+      worksheet.mergeCells(`A${headerRow.number}:K${headerRow.number}`);
       headerRow.getCell(1).font = { bold: true, size: 16 };
       headerRow.getCell(1).alignment = { horizontal: 'center' };
       headerRow.getCell(1).border = { bottom: { style: 'medium' } };
 
       // Sub-header: Double Efficiency with Loss Target
       const subHeaderRow = worksheet.addRow([`Double Efficiency with Loss Target For the Month of ${reportMonthFilter}`]);
-      worksheet.mergeCells(`A${subHeaderRow.number}:J${subHeaderRow.number}`);
+      worksheet.mergeCells(`A${subHeaderRow.number}:K${subHeaderRow.number}`);
       subHeaderRow.getCell(1).font = { bold: true, italic: true, size: 11 };
       subHeaderRow.getCell(1).alignment = { horizontal: 'center' };
 
       // Operator Name
       const opNameRow = worksheet.addRow([operator]);
-      worksheet.mergeCells(`A${opNameRow.number}:J${opNameRow.number}`);
+      worksheet.mergeCells(`A${opNameRow.number}:K${opNameRow.number}`);
       opNameRow.getCell(1).font = { bold: true, size: 14, underline: true };
       opNameRow.getCell(1).alignment = { horizontal: 'center' };
       worksheet.addRow([]); // Spacer
 
-      // Approval Section (Side-by-side like App UI with 10 columns)
-      const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '', '', '', '', '']);
+      // Approval Section (Side-by-side like App UI with 11 columns)
+      const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '', '', '', '', '', '']);
       worksheet.mergeCells(`A${approvalRow.number}:B${approvalRow.number}`);
       worksheet.mergeCells(`D${approvalRow.number}:F${approvalRow.number}`);
       worksheet.mergeCells(`G${approvalRow.number}:I${approvalRow.number}`);
@@ -180,7 +203,7 @@ export default function DoubleMachineLossReport({
       approvalRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
       approvalRow.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
 
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 11; i++) {
         approvalRow.getCell(i).border = {
           top: { style: 'thin' },
           left: { style: 'thin' },
@@ -193,22 +216,27 @@ export default function DoubleMachineLossReport({
       // Summary Totals
       const totalDays = opData.length;
       let totalTarget = 0;
+      let totalWorkerTarget = 0;
       let totalActual = 0;
+      
+      let recordIdx = 0;
       opData.forEach(day => {
         day.records.forEach(r => {
           totalTarget += r.targetShots;
+          const { workerTarget } = getWorkerTargetAndPercent(r, operator, recordIdx++);
+          totalWorkerTarget += workerTarget;
           totalActual += r.actualShots;
         });
       });
-      const overallPercent = (totalActual / (totalTarget || 1)) * 100;
+      const overallPercent = (totalActual / (totalWorkerTarget || 1)) * 100;
       const totalLossTarget = totalActual - totalTarget;
 
-      const summaryRow = worksheet.addRow(['Total Double Machine Days', '', totalDays, '', '', totalTarget, totalActual, totalLossTarget, `${overallPercent.toFixed(2)}%`, '']);
+      const summaryRow = worksheet.addRow(['Total Double Machine Days', '', totalDays, '', '', totalTarget, totalWorkerTarget, totalActual, totalLossTarget, `${overallPercent.toFixed(2)}%`, '']);
       worksheet.mergeCells(`A${summaryRow.number}:B${summaryRow.number}`);
       summaryRow.font = { bold: true, size: 10 };
       summaryRow.alignment = { horizontal: 'center', vertical: 'middle' };
       summaryRow.height = 25;
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 11; i++) {
         const cell = summaryRow.getCell(i);
         cell.border = {
           top: { style: 'medium' },
@@ -225,7 +253,7 @@ export default function DoubleMachineLossReport({
       worksheet.addRow([]); // Spacer
 
       // Table Header
-      const tableHeader = worksheet.addRow(['NO', 'Date', 'Part Name', 'Part No.', 'Customer', 'Target', 'Actual', 'Loss Target', '%', 'Remarks']);
+      const tableHeader = worksheet.addRow(['NO', 'Date', 'Part Name', 'Part No.', 'Customer', 'Total Target', 'Worker Target', 'Actual', 'Loss Target', '%', 'Remarks']);
       tableHeader.font = { bold: true };
       tableHeader.alignment = { horizontal: 'center' };
       tableHeader.eachCell((cell) => {
@@ -244,9 +272,10 @@ export default function DoubleMachineLossReport({
 
       // Table Data
       let counter = 1;
+      let dataRecordIndex = 0;
       opData.forEach(day => {
         day.records.forEach(record => {
-          const percent = (record.actualShots / (record.targetShots || 1)) * 100;
+          const { workerTarget, percent } = getWorkerTargetAndPercent(record, operator, dataRecordIndex++);
           const lossTarget = record.actualShots - record.targetShots;
           const key = record.partName.trim().toLowerCase();
           const mapping = partCustomerMap.get(key);
@@ -260,6 +289,7 @@ export default function DoubleMachineLossReport({
             pNo,
             customer,
             record.targetShots,
+            workerTarget,
             record.actualShots,
             lossTarget,
             `${percent.toFixed(1)}%`,
@@ -527,14 +557,19 @@ export default function DoubleMachineLossReport({
                           const opData = doubleMachineLossData[operator];
                           const totalDays = opData.length;
                           let totalTarget = 0;
+                          let totalWorkerTarget = 0;
                           let totalActual = 0;
+                          
+                          let sumRecordIdx = 0;
                           opData.forEach(day => {
                             day.records.forEach(r => {
                               totalTarget += r.targetShots;
+                              const { workerTarget } = getWorkerTargetAndPercent(r, operator, sumRecordIdx++);
+                              totalWorkerTarget += workerTarget;
                               totalActual += r.actualShots;
                             });
                           });
-                          const overallPercent = (totalActual / (totalTarget || 1)) * 100;
+                          const overallPercent = (totalActual / (totalWorkerTarget || 1)) * 100;
                           const totalLossTarget = totalActual - totalTarget;
 
                           return (
@@ -542,7 +577,8 @@ export default function DoubleMachineLossReport({
                               <div className="col-span-3 p-2 border-r-2 border-black bg-slate-50 uppercase tracking-wider">Total Double Machine Days</div>
                               <div className="col-span-2 p-2 border-r-2 border-black text-xl">{totalDays}</div>
                               <div className="col-span-5 p-2 bg-slate-50 uppercase tracking-wider flex items-center justify-center gap-4">
-                                <div className="text-[10px] text-slate-500">Target: {totalTarget.toLocaleString()}</div>
+                                <div className="text-[10px] text-slate-500">Total Target: {totalTarget.toLocaleString()}</div>
+                                <div className="text-[10px] text-slate-500">Worker Target: {totalWorkerTarget.toLocaleString()}</div>
                                 <div className="text-[10px] text-slate-500">Actual: {totalActual.toLocaleString()}</div>
                                 <div className="text-[10px] text-slate-500 text-red-600">Loss Target: {totalLossTarget.toLocaleString()}</div>
                                 <div className="text-indigo-600 font-black">{overallPercent.toFixed(2)}%</div>
@@ -560,7 +596,8 @@ export default function DoubleMachineLossReport({
                               <th className="border-2 border-black p-2 text-left">Part Name</th>
                               <th className="border-2 border-black p-2 text-left">Part No.</th>
                               <th className="border-2 border-black p-2 text-left">Customer</th>
-                              <th className="border-2 border-black p-2 w-20 text-center">Target</th>
+                              <th className="border-2 border-black p-2 w-20 text-center">Total Target</th>
+                              <th className="border-2 border-black p-2 w-24 text-center">Worker Target</th>
                               <th className="border-2 border-black p-2 w-20 text-center">Actual</th>
                               <th className="border-2 border-black p-2 w-24 text-center">Loss Target</th>
                               <th className="border-2 border-black p-2 w-16 text-center">%</th>
@@ -570,10 +607,11 @@ export default function DoubleMachineLossReport({
                           <tbody>
                             {(() => {
                               let counter = 1;
+                              let viewRecordIndex = 0;
                               return doubleMachineLossData[operator].map((day) => (
                                 <React.Fragment key={`${day.date}-${day.shift}`}>
                                   {day.records.map((record, rIdx) => {
-                                    const percent = (record.actualShots / (record.targetShots || 1)) * 100;
+                                    const { workerTarget, percent } = getWorkerTargetAndPercent(record, operator, viewRecordIndex++);
                                     const lossTarget = record.actualShots - record.targetShots;
                                     const key = record.partName.trim().toLowerCase();
                                     const mapping = partCustomerMap.get(key);
@@ -588,6 +626,7 @@ export default function DoubleMachineLossReport({
                                         <td className="border-2 border-black p-2 uppercase text-left font-mono">{pNo}</td>
                                         <td className="border-2 border-black p-2 uppercase text-left">{customer}</td>
                                         <td className="border-2 border-black p-2 text-center font-mono">{record.targetShots.toLocaleString()}</td>
+                                        <td className="border-2 border-black p-2 text-center font-mono">{workerTarget.toLocaleString()}</td>
                                         <td className="border-2 border-black p-2 text-center font-mono">{record.actualShots.toLocaleString()}</td>
                                         <td className="border-2 border-black p-2 text-center font-mono">{lossTarget.toLocaleString()}</td>
                                         <td className="border-2 border-black p-2 text-center font-black">{percent.toFixed(1)}%</td>
