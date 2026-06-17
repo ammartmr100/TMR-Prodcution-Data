@@ -189,19 +189,18 @@ export default function DoubleMachineLossReport({
       worksheet.addRow([]); // Spacer
 
       // Approval Section (Side-by-side like App UI with 11 columns)
-      const approvalRow = worksheet.addRow(['Confirm By', '', '', 'Approved By', '', '', '', '', '', '', '']);
+      const approvalRow = worksheet.addRow(['Confirm By', '', '', '', '', '', 'Approved By', '', '', '', '']);
       worksheet.mergeCells(`A${approvalRow.number}:B${approvalRow.number}`);
-      worksheet.mergeCells(`D${approvalRow.number}:F${approvalRow.number}`);
-      worksheet.mergeCells(`G${approvalRow.number}:I${approvalRow.number}`);
+      worksheet.mergeCells(`C${approvalRow.number}:F${approvalRow.number}`);
+      worksheet.mergeCells(`G${approvalRow.number}:J${approvalRow.number}`);
+      worksheet.mergeCells(`K${approvalRow.number}:K${approvalRow.number}`);
       approvalRow.height = 60;
       
       approvalRow.getCell(1).font = { bold: true, size: 10 };
       approvalRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-      approvalRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
       
-      approvalRow.getCell(4).font = { bold: true, size: 10 };
-      approvalRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
-      approvalRow.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+      approvalRow.getCell(7).font = { bold: true, size: 10 };
+      approvalRow.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
 
       for (let i = 1; i <= 11; i++) {
         approvalRow.getCell(i).border = {
