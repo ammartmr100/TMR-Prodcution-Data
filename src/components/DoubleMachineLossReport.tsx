@@ -162,7 +162,7 @@ export default function DoubleMachineLossReport({
         { width: 20 }, // Customer / Column C
         { width: 14 }, // Total Target
         { width: 14 }, // Worker Target
-        { width: 12 }, // Actual
+        { width: 16 }, // Worker Achieved
         { width: 14 }, // Loss Target
         { width: 10 }, // %
         { width: 25 }  // Remarks
@@ -252,7 +252,7 @@ export default function DoubleMachineLossReport({
       worksheet.addRow([]); // Spacer
 
       // Table Header
-      const tableHeader = worksheet.addRow(['NO', 'Date', 'Part Name', 'Part No.', 'Customer', 'Total Target', 'Worker Target', 'Actual', 'Loss Target', '%', 'Remarks']);
+      const tableHeader = worksheet.addRow(['NO', 'Date', 'Part Name', 'Part No.', 'Customer', 'Total Target', 'Worker Target', 'Worker Achieved', 'Loss Target', '%', 'Remarks']);
       tableHeader.font = { bold: true };
       tableHeader.alignment = { horizontal: 'center' };
       tableHeader.eachCell((cell) => {
@@ -578,7 +578,7 @@ export default function DoubleMachineLossReport({
                               <div className="col-span-5 p-2 bg-slate-50 uppercase tracking-wider flex items-center justify-center gap-4">
                                 <div className="text-[10px] text-slate-500">Total Target: {totalTarget.toLocaleString()}</div>
                                 <div className="text-[10px] text-slate-500">Worker Target: {totalWorkerTarget.toLocaleString()}</div>
-                                <div className="text-[10px] text-slate-500">Actual: {totalActual.toLocaleString()}</div>
+                                <div className="text-[10px] text-slate-500">Worker Achieved: {totalActual.toLocaleString()}</div>
                                 <div className="text-[10px] text-slate-500 text-red-600">Loss Target: {totalLossTarget.toLocaleString()}</div>
                                 <div className="text-indigo-600 font-black">{overallPercent.toFixed(2)}%</div>
                               </div>
@@ -597,7 +597,7 @@ export default function DoubleMachineLossReport({
                               <th className="border-2 border-black p-2 text-left">Customer</th>
                               <th className="border-2 border-black p-2 w-20 text-center">Total Target</th>
                               <th className="border-2 border-black p-2 w-24 text-center">Worker Target</th>
-                              <th className="border-2 border-black p-2 w-20 text-center">Actual</th>
+                              <th className="border-2 border-black p-2 w-20 text-center">Worker Achieved</th>
                               <th className="border-2 border-black p-2 w-24 text-center">Loss Target</th>
                               <th className="border-2 border-black p-2 w-16 text-center">%</th>
                               <th className="border-2 border-black p-2 text-left">Remarks</th>
