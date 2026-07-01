@@ -96,7 +96,7 @@ export default function DoubleMachineLossReport({
       "Martha Fiaz", "Rida BiBi", "Kaneez BiBi", "Rukhsana Patrs", 
       "Rukhsana Mohsan", "Shehnaz Munir", "Razia Mushtaq", 
       "Khalida BiBi", "Asia bibi", "Saleem Akram", "Rizwan", 
-      "Arslan", "Abdul Raheem"
+      "Arslan", "Abdul Raheem", "Zulifqar Ali Night"
     ];
 
     monthFilteredData.forEach(record => {
@@ -115,7 +115,7 @@ export default function DoubleMachineLossReport({
         // Group by shift
         const shifts: { [shift: string]: CleanRecord[] } = {};
         records.forEach(r => {
-          if (r.shift === 'Night' && operator !== 'Rizwan') return;
+          if (r.shift === 'Night' && operator !== 'Rizwan' && operator !== 'Zulifqar Ali Night') return;
           
           if (!shifts[r.shift]) shifts[r.shift] = [];
           shifts[r.shift].push(r);

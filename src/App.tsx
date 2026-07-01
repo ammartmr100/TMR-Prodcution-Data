@@ -985,7 +985,7 @@ export default function App() {
       "Martha Fiaz", "Rida BiBi", "Kaneez BiBi", "Rukhsana Patrs", 
       "Rukhsana Mohsan", "Shehnaz Munir", "Razia Mushtaq", 
       "Khalida BiBi", "Asia bibi", "Saleem Akram", "Rizwan", 
-      "Arslan", "Abdul Raheem"
+      "Arslan", "Abdul Raheem", "Zulifqar Ali Night"
     ];
 
     monthFilteredData.forEach(record => {
@@ -1013,9 +1013,9 @@ export default function App() {
         // Group by shift
         const shifts: { [shift: string]: CleanRecord[] } = {};
         records.forEach(r => {
-          // Special rule: Only Rizwan's night shift counts. 
+          // Special rule: Only Rizwan's or Zulifqar Ali Night's night shift counts. 
           // User said: "night main sirf aik worker ha or us ka name 'Rizwan' ha is la ilawa app na night main kisi worker ki report nahi banai ha"
-          if (r.shift === 'Night' && operator !== 'Rizwan') return;
+          if (r.shift === 'Night' && operator !== 'Rizwan' && operator !== 'Zulifqar Ali Night') return;
           
           if (!shifts[r.shift]) shifts[r.shift] = [];
           shifts[r.shift].push(r);
